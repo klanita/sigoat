@@ -6,6 +6,8 @@ def parse_args():
         description='Adversarial Autoencoder for Domain Adaptation of Optoacoustic signal.')
 
     parser.add_argument('--test', type=int, default=0)
+    
+    parser.add_argument('--oldcode', type=int, default=0)
 
     parser.add_argument('--file_in', type=str,
         default='/home/anna/dlbirhoui_data/parsed_simulated_ellipsesSkinMask_mgt_ms_ring_256_ratio_09_1_20210412.h5')
@@ -13,8 +15,10 @@ def parse_args():
 
     parser.add_argument('--dataset', type=str, default='Forearm', 
         help='Forearm (default) or Finger.')
+    
     parser.add_argument('--target', type=str,
         default='/home/anna/dlbirhoui_data/arm.h5')
+    
     # parser.add_argument('--target_modality', type=str, default='ground_truth')
     
     parser.add_argument('--mode', type=str, default="style",

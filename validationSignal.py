@@ -3,7 +3,7 @@ from options import parse_args
 import torch
 import numpy as np
 
-from dataLoader import UnpairedDataset
+from dataLoader import TestDataset
 from model import * 
 
 from utils import *
@@ -12,6 +12,7 @@ import h5py
 
 import argparse
 import json
+from tqdm import tqdm
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Validation Signal')        
@@ -29,6 +30,14 @@ def parse_args():
         default="/home/anna/OptoAcoustics/validation/",
         help="Target directory to save the model.")
 
+    parser.add_argument('--file_syn', type=str,
+        default='/home/anna/dlbirhoui_data/parsed_simulated_ellipsesSkinMask_mgt_ms_ring_256_ratio_09_1_20210412.h5')
+    parser.add_argument('--file_real', type=str,
+        default='/home/anna/dlbirhoui_data/arm.h5')
+    
+    parser.add_argument('--dataset', type=str, choices=['syn', 'real'],
+        default='real')
+    
     args = parser.parse_args()
 
     return args
@@ -142,7 +151,7 @@ class Validation:
         return signal_with_RC, signal_with_denoise
 
     
-    def save_h5(self, signal_tgt, fname):
+    def save_h5(self, signal_tgt, fname, batch_num=0):
         fname_h5 = f'{self.logfile_imgs}/{fname}.h5'        
 
         num_images = signal_tgt.shape[0]
@@ -173,13 +182,13 @@ class Validation:
                 h5_fh['sigmat_multisegment'][i] = signal_tgt[i].numpy()
                 h5_fh['signal_with_RC'][i] = signal_with_RC[i][0].cpu().numpy()
                 h5_fh['signal_with_denoise'][i] = signal_with_denoise[i][0].cpu().numpy()
-    
-        for i_im in [0, 12]:
-            show_signal(
-                fname_h5,
-                im=i_im,
-                fname=f'{self.logfile_imgs}/{fname}_Signal_{i_im}.png'
-            )
+
+        i_im = np.random.choice(num_images)
+        show_signal(
+            fname_h5,
+            im=i_im,
+            fname=f'{self.logfile_imgs}/{fname}_Signal_batch{batch_num}_{i_im}.png'
+        )
 
 
 def norm(img, scale=1):
@@ -197,14 +206,14 @@ def norm(img, scale=1):
     if img.shape[1] == 128:
         img = np.concatenate(
             [np.ones([n1, 64]), img, np.ones([n1, 64])], axis=1)
-    print(img.min(), img.max())
+    # print(img.min(), img.max())
     return img
 
 def show_signal(file_name, im=0, fs=9, fname=None):
     file = h5py.File(file_name, 'r')
     n = len(file.keys())+2
     fig, ax = plt.subplots(1, n, figsize=(n*4.25-3.15, 2*4.25), sharex=True, sharey=True)
-    print(file.keys())
+    # print(file.keys())
            
     ax[0].imshow(norm(file['sigmat_multisegment'][im], scale=0), cmap='gray', vmin=-1, vmax=1)
     ax[0].set_title('Multi GT', fontsize=fs, fontweight='bold')
@@ -255,28 +264,27 @@ if __name__ == "__main__":
     with open(f'{model.logfile_imgs}/commandline_args.txt', 'w') as f:
         json.dump(opt.__dict__, f, indent=2)
 
-    file_in = '/home/anna/dlbirhoui_data/parsed_simulated_ellipsesSkinMask_mgt_ms_ring_256_ratio_09_1_20210412.h5'
-    target = '/home/anna/dlbirhoui_data/arm.h5'
+    if opt.dataset == 'real':
+        filename = opt.file_real
+        batch_size = 256
+    elif opt.dataset == 'syn':
+        filename = opt.file_syn
+        batch_size = 64
+    else:
+        raise NotImplementedError
 
-    # file_in = ''
-    # target = ''
-
-    dataset = UnpairedDataset(
-        file_in,
-        file_name_real=target,
-        geometry='multisegment',
-        validation=True
-    )
+    dataset = TestDataset(filename)
 
     data_loader = torch.utils.data.DataLoader(
         dataset=dataset,
-        batch_size=1024,
+        batch_size=batch_size,
         shuffle=False,
     )
 
-    dataiter = iter(data_loader)
-
-    syn_tgt, real_tgt, img_num = dataiter.next()
-
-    model.save_h5(real_tgt, 'Real')
-    # model.save_h5(syn_tgt, 'Syn')
+    pbar = tqdm(data_loader)
+    
+    i = 0
+    for signal_input, cut_out in pbar:
+        model.save_h5(signal_input, f'{opt.dataset}_{i}', i)
+        i += 1
+        pbar.set_description(f'{cut_out.mean():,}')

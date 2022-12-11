@@ -51,7 +51,7 @@ class ReconstructionBenchmarks:
         img_pred =\
             (np.transpose(self.mm)*signal_vec).reshape(256, 256)
         end = time.time()
-        print(f"Atb: {end - start:.2f} sec")
+        # print(f"Atb: {end - start:.2f} sec")
 
         if show:
             self.plot(img_pred)
@@ -73,7 +73,7 @@ class ReconstructionBenchmarks:
         img_pred =\
             lsqr(self.mm, signal_vec, iter_lim=iter_lim)[0].reshape(256, 256)
         end = time.time()
-        print(f"lsqr: {end - start:.2f} sec")
+        # print(f"lsqr: {end - start:.2f} sec")
 
         if show:
             self.plot(img_pred)
@@ -109,7 +109,7 @@ class ReconstructionBenchmarks:
         clf.fit(self.mm, signal_vec)
         img_pred = clf.coef_.reshape(256, 256)
         end = time.time()
-        print(f"{model}: {end - start:.2f} sec")
+        # print(f"{model}: {end - start:.2f} sec")
 
         if show:
             self.plot(img_pred)
@@ -136,7 +136,7 @@ class ReconstructionBenchmarks:
                 epsRs=[np.sqrt(alpha/2)],
                 **dict(iter_lim=iter_lim)).reshape(256, 256)
         end = time.time()
-        print(f"TV: {end - start:.2f} sec")
+        # print(f"TV: {end - start:.2f} sec")
 
         if show:
             self.plot(img_pred)
@@ -175,7 +175,7 @@ class ReconstructionBenchmarks:
             )
         
         end = time.time()
-        print(f"BP: {end - start:.2f} sec")
+        # print(f"BP: {end - start:.2f} sec")
 
         if show:
             self.plot(img_pred)
@@ -196,18 +196,38 @@ def show_resonstruction(
     imgs_list = list(reconstrutctions.values())
     titels = list(reconstrutctions.keys())
     
-    if len(imgs_list) < 4:
+    if len(titels) == 1:
+        fig = plt.figure(figsize=figsize)
+        img = reconstrutctions[titels[0]]
+        if img.shape[0] == 1:
+            plt.imshow(reconstrutctions[titels[0]][0], cmap=cmap)
+        else:
+            plt.imshow(reconstrutctions[titels[0]], cmap=cmap)
+        # , cmap='seismic'
+        plt.title(titels[0], fontsize=5, fontweight='bold')
+
+        # ax[i].xaxis.set_tick_params(labelsize=3)
+        # ax[i].yaxis.set_tick_params(labelsize=3)
+    
+    elif len(imgs_list) < 4:
         fig, ax = plt.subplots(1, len(imgs_list), figsize=figsize)
         for i in range(len(imgs_list)):
-            ax[i].imshow(imgs_list[i], cmap=cmap)
+            img = reconstrutctions[titels[i]]
+        #     print(img)
+        # quit()
+        #     # if img.shape[0] == 1:
+        #     #     img = img[0]
+            ax[i].imshow(img, cmap=cmap)
             # , cmap='seismic'
             ax[i].set_title(titels[i], fontsize=5, fontweight='bold')
             ax[i].xaxis.set_tick_params(labelsize=3)
             ax[i].yaxis.set_tick_params(labelsize=3)
-    else:        
+            
+    elif len(titels) > 1: 
         n1 = int(np.ceil(len(imgs_list)/2))
         n2 = 2
         figsize = (n2*2.25, n1*2.25)
+        
         fig, ax = plt.subplots(n1, n2, figsize=figsize)
         l = 0
         for i in range(n1):
@@ -220,8 +240,26 @@ def show_resonstruction(
                     ax[i, j].yaxis.set_tick_params(labelsize=3)
                 else:
                     ax[i, j].axis('off')
-                    ax[i, j].axis('equal')
-                    
+                    ax[i, j].axis('equal')     
+
+                l += 1
+                
+    elif len(titels) == 1: 
+        n1 = int(np.ceil(len(imgs_list)/2))
+        figsize = (n1*2.25, 2.25)
+        
+        fig, ax = plt.subplots(1, n1, figsize=figsize)
+        l = 0
+        for i in range(n1):
+            if l < len(imgs_list):
+                ax[i].imshow(imgs_list[l], cmap=cmap)
+                # , cmap='seismic'
+                ax[i].set_title(titels[l], fontsize=5, fontweight='bold')
+                ax[i].xaxis.set_tick_params(labelsize=3)
+                ax[i].yaxis.set_tick_params(labelsize=3)
+            else:
+                ax[i].axis('off')
+                ax[i].axis('equal')     
 
                 l += 1
     

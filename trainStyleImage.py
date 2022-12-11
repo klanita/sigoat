@@ -12,35 +12,37 @@ real_label = 1.
 syn_label = 0.
 criterion = nn.BCELoss()
 
-def classifier_step(netD, with_style, signal_truth, weight_grad_adv, device='cuda:0', sigma=0.05):
-    noise = torch.normal(0, sigma, with_style.shape, device=device)
-    D_input_gen = with_style + noise
-    outputD_gen = netD(D_input_gen).view(-1)
-    b_size = outputD_gen.size(0)
+def classifier_step(netD, input0, input1, weight_grad_adv, device='cuda:0', sigma=0.05):
+    label0 = 0
+    label1 = 1
+    noise = torch.normal(0, sigma, input0.shape, device=device)
+    D_input_gen = input0 + noise
+    outputD_0 = netD(D_input_gen).view(-1)
+    b_size = outputD_0.size(0)
 
-    label_truth = torch.full((b_size, ), real_label, dtype=torch.float, device=device)
-    label_gen = torch.full((b_size, ), syn_label, dtype=torch.float, device=device)
+    label_0 = torch.full((b_size, ), label0, dtype=torch.float, device=device)
+    label_1 = torch.full((b_size, ), label1, dtype=torch.float, device=device)
 
-    errD_gen = criterion(outputD_gen, label_gen)
+    errD_0 = criterion(outputD_0, label_0)
     adversary_penalty = torch.autograd.grad(
-        errD_gen,
-        outputD_gen,
+        errD_0,
+        outputD_0,
         create_graph=True)[0].pow(2).mean()
 
-    noise = torch.normal(0, sigma, signal_truth.shape, device=device)
-    D_input = noise + signal_truth
-    outputD = netD(D_input).view(-1)
-    errD = criterion(outputD, label_truth)
+    noise = torch.normal(0, sigma, input1.shape, device=device)
+    D_input = noise + input1
+    outputD_1 = netD(D_input).view(-1)
+    errD_1 = criterion(outputD_1, label_1)
                     
     adversary_penalty += torch.autograd.grad(
-        errD,
-        outputD,
+        errD_1,
+        outputD_1,
         create_graph=True)[0].pow(2).mean()
 
-    acc = get_accuracy(torch.cat((outputD, outputD_gen), dim=0),\
-                        torch.cat((label_truth, label_gen), dim=0), device)
+    acc = get_accuracy(torch.cat((outputD_1, outputD_0), dim=0),\
+                        torch.cat((label_1, label_0), dim=0), device)
 
-    err = errD_gen + errD + weight_grad_adv * adversary_penalty    
+    err = errD_0 + errD_1 + weight_grad_adv * adversary_penalty    
 
     return err, acc, adversary_penalty.item()
 
@@ -148,9 +150,9 @@ class TrainerStyleImages:
         # img_real_test = img_real_test[:, :, :, ::-1].clone()
 
         if loss == 'l2':
-            criterionMSE = torch.nn.MSELoss(reduction='mean')
+            criterionRec = torch.nn.MSELoss(reduction='mean')
         else:
-            criterionMSE = torch.nn.L1Loss(reduction='mean')        
+            criterionRec = torch.nn.L1Loss(reduction='mean')        
 
         writer = SummaryWriter()
         iters = 0
@@ -249,15 +251,15 @@ class TrainerStyleImages:
                     rec_syn_to_real = self.StyleNet.decode(latent_syn, real=True)
                     
                     # simple reconstruction loss
-                    err_MSE = criterionMSE(rec_syn, img_syn) +\
-                        criterionMSE(rec_real, img_real)
+                    err_rec = criterionRec(rec_syn, img_syn) +\
+                        criterionRec(rec_real, img_real)
 
                     # add cycle consistency loss
                     rec_syn_cycle = self.StyleNet(rec_syn_to_real, real=False)
                     rec_real_cycle = self.StyleNet(rec_real_to_syn, real=True)
-                    err_cycle = criterionMSE(rec_syn_cycle, img_syn)
+                    err_cycle = criterionRec(rec_syn_cycle, img_syn)
                     # +\
-                        # criterionMSE(rec_real_cycle, img_real)
+                        # criterionRec(rec_real_cycle, img_real)
 
                     outputD_denoise = self.netD_denoise(rec_real_to_syn).view(-1)
                     b_size = outputD_denoise.size(0)
@@ -273,7 +275,7 @@ class TrainerStyleImages:
                     acc = get_accuracy(outputD_noise, label_real, self.device)
                     self.losses['Accuracy_ADV_noise'] = acc
 
-                    loss_total = err_MSE +\
+                    loss_total = err_rec +\
                         self.weight_cycle * err_cycle +\
                         self.weight_mmd*loss_fm +\
                         self.weight_adv_latent*errD_latent
@@ -282,13 +284,13 @@ class TrainerStyleImages:
                         loss_total +=\
                             self.weight_adv*(err_D_denoise + err_D_noise)                     
 
-                    self.losses['Rec_MMD'] = loss_fm.item()
-                    self.losses['REC_mse'] = err_MSE.item()
-                    self.losses['REC_cycle'] = err_cycle.item()
-                    self.losses['ADV_noise'] = err_D_noise.item()
-                    self.losses['ADV_denoise'] = err_D_denoise.item()
-                    self.losses['ADV_latent'] = errD_latent.item()
-                    self.losses['TOTAL_LOSS'] = loss_total.item()
+                    self.losses['LOSS_MMD'] = loss_fm.item()
+                    self.losses['LOSS_mse'] = err_rec.item()
+                    self.losses['LOSS_cycle'] = err_cycle.item()
+                    self.losses['LOSS_ADV_noise'] = err_D_noise.item()
+                    self.losses['LOSS_ADV_denoise'] = err_D_denoise.item()
+                    self.losses['LOSS_ADV_latent'] = errD_latent.item()
+                    self.losses['LOSS_TOTAL'] = loss_total.item()
 
                     self.losses['Variance'] =\
                         torch.exp(self.StyleNet.logvar.weight[0]).max()
@@ -321,9 +323,9 @@ class TrainerStyleImages:
                     real_to_syn = self.StyleNet(img_real_test, real=False)
                     real_gen = self.StyleNet(img_real_test, real=True)                       
 
-                err_MSE = criterionMSE(syn_gen, img_syn_test) +\
-                    criterionMSE(real_gen, img_real_test)                            
-                self.losses['VAL_REC_mse'] = err_MSE.item()
+                err_rec = criterionRec(syn_gen, img_syn_test) +\
+                    criterionRec(real_gen, img_real_test)                            
+                self.losses['LOSS_VAL_mse'] = err_rec.item()
                 self.StyleNet.train()
 
                 writer.add_image('VAL TARGET Synthetic', 

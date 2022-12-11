@@ -25,39 +25,53 @@ import json
 if __name__ == "__main__":
     opt = parse_args()
 
-    # Indexes of the images we use for validation are currently hardcoded
-    if opt.test:
-        idx_test = []
-    else:
-        idx_test = [0, 142, 285, 428, 570, 713, 856, 998, 1141, 1284, 1426,
-        1569, 1712, 1854, 1997, 2140, 2282, 2425, 2568, 2710, 2853, 2996, 3138, 
-        3281, 3424, 3566, 3709, 3851, 3994, 4137, 4280, 4422]
-
     device = torch.device(opt.device if torch.cuda.is_available() else 'cpu')
+    
+    # Indexes of the images we use for validation are currently hardcoded
+    if opt.oldcode:
+        if opt.test:
+            idx_test = []
+        else:
+            idx_test = [0, 142, 285, 428, 570, 713, 856, 998, 1141, 1284, 1426,
+            1569, 1712, 1854, 1997, 2140, 2282, 2425, 2568, 2710, 2853, 2996, 3138, 
+            3281, 3424, 3566, 3709, 3851, 3994, 4137, 4280, 4422]
 
-    # Load data
-    if opt.mode in ['styleImages']:
-        dataset = UnpairedDatasetImages(
-            opt.file_in,
-            file_name_real=opt.target)
+        # Load data
+        if opt.mode in ['styleImages']:
+            dataset = UnpairedDatasetImages(
+                opt.file_in,
+                file_name_real=opt.target)
+        else:
+            dataset = UnpairedDataset(
+                opt.file_in,
+                file_name_real=opt.target,
+                geometry=opt.geometry
+                )    
+
+        # hold of test images which are never used for training
+        idx_all = list(set(range(len(dataset))) - set(idx_test))
+
+        # separate the leftover of the dataset into train and validation
+        idx_train, idx_val = train_test_split(
+            idx_all, test_size=32, random_state=42)
+        val_set = torch.utils.data.dataset.Subset(
+            dataset, torch.LongTensor(idx_val))
+        train_set = torch.utils.data.dataset.Subset(
+            dataset, torch.LongTensor(idx_train))
+        print('Training Dataset length:', len(train_set), '\tdevice:', device)
+        
     else:
-        dataset = UnpairedDataset(
-            opt.file_in,
-            file_name_real=opt.target,
-            geometry=opt.geometry
-            )    
-
-    # hold of test images which are never used for training
-    idx_all = list(set(range(len(dataset))) - set(idx_test))
-
-    # separate the leftover of the dataset into train and validation
-    idx_train, idx_val = train_test_split(
-        idx_all, test_size=32, random_state=42)
-    val_set = torch.utils.data.dataset.Subset(
-        dataset, torch.LongTensor(idx_val))
-    train_set = torch.utils.data.dataset.Subset(
-        dataset, torch.LongTensor(idx_train))
-    print('Training Dataset length:', len(train_set), '\tdevice:', device)
+        train_set = UnpairedDataset(
+                f'{opt.file_in}_train.h5',
+                file_name_real=f'{opt.target}_train.h5',
+                geometry=opt.geometry
+                )
+        
+        val_set = UnpairedDataset(
+                f'{opt.file_in}_val.h5',
+                file_name_real=f'{opt.target}_val.h5',
+                geometry=opt.geometry
+                )
 
     data_loader_train = torch.utils.data.DataLoader(
         dataset=train_set,

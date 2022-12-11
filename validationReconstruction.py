@@ -15,6 +15,10 @@ import os
 
 import argparse
 import json
+from tqdm import tqdm
+import torch
+from ReconstructionBP import sigMatFilter
+from dataLoader import sigMatNormalizeTensor
 
 idx_use = list(range(524, 1480))
 
@@ -28,8 +32,10 @@ def parse_args():
     parser.add_argument('--nimgs', type=int, default=1)
     parser.add_argument('--scale_val', type=float, default=0)
     parser.add_argument('--subset', type=int, default=0)
+    parser.add_argument('--modes_list', type=str, nargs='+', 
+                        default=['BackProjection', 'ElasticNet 1e-5'])
     args = parser.parse_args()
-    print(args)
+
     return args
 
 def get_signal_vec(
@@ -43,21 +49,29 @@ def get_signal_vec(
     ):
     # idx_signal = list(range(524, 1480))
     if geometry == 'linear':
-        signal = file[mode][img_idx][:, 64:-64]
+        signal = -file[mode][img_idx][:, 64:-64]
     else:        
-        signal = file[mode][img_idx]
+        signal = -file[mode][img_idx]
         if scale_val > 0:            
             signal[:, 64:-64] /= np.max(signal[:, 64:-64])
             signal[:, :64] = scale_val*signal[:, :64]/np.max(signal[:, :64])
             signal[:, -64:] = scale_val*signal[:, -64:]/np.max(signal[:, -64:])
             signal = np.clip(signal, -0.75, 1)
 
+    if signal.shape[0] != 956:
+        signal = signal[idx_use]
+        signal = sigMatFilter(np.expand_dims(signal, axis=2))[:, :, 0]    
+        if geometry == 'linear':           
+            signal = -sigMatNormalizeTensor(torch.Tensor(signal), idx=range(0, 128)).numpy()
+        else:
+            signal = -sigMatNormalizeTensor(torch.Tensor(signal)).numpy()
+
     signal /= np.max(signal)
     if show:
         plt.figure(figsize=(10, 10))
         plt.imshow(signal, cmap='RdBu', interpolation='none')
         plt.colorbar()
-    
+
     return signal
 
 
@@ -66,7 +80,6 @@ if __name__ == "__main__":
     file_in = f'{opt.folder}/{opt.data}.h5'
 
     file = h5py.File(file_in, 'r')
-    file.keys()
     Rec = ReconstructionBenchmarks(geometry=opt.geometry)
 
     if opt.geometry == 'multi':
@@ -87,8 +100,13 @@ if __name__ == "__main__":
         sigmat_size = [256, 256]    
         compression_lvl = 9 # pick between 0 and 9
 
-        modes_list = ['BackProjection', 'ElasticNet 1e-5']
+        # modes_list = ['BackProjection', 'ElasticNet 1e-5']
+        modes_list = opt.modes_list
         fname_h5 = f'{tgt_folder}/{out_name}.h5'
+        
+        
+        nimgs = file[opt.mode].shape[0]
+        print(f'Found {nimgs} images.')
         
         print('Creating file: %s' % fname_h5)
         data = {}
@@ -96,18 +114,20 @@ if __name__ == "__main__":
             for mode in modes_list:
                 data[mode] =\
                     h5_fh.create_dataset(mode,
-                    shape=[opt.nimgs] + sigmat_size, 
+                    shape=[nimgs] + sigmat_size, 
                     dtype=np.float32, chunks=tuple([1] + sigmat_size),
                     compression='gzip', compression_opts=compression_lvl)
 
         if opt.subset == 1:
             imdgs_idx = [1, 9, 12, 13, 22, 23, 26]
         else:
-            imdgs_idx = range(opt.nimgs)
-
+            imdgs_idx = range(nimgs)
+        
+        selected = [0, 1, 9, 12, 13, 22, 23, 26]
+        pbar = tqdm(imdgs_idx)
         with h5py.File(fname_h5, 'a', libver='latest') as h5_fh:
-            for img_idx in imdgs_idx:
-                print('Img_idx:', img_idx)
+            for img_idx in pbar:
+                # print('Img_idx:', img_idx)
                 start = time.time()
                 signal = get_signal_vec(
                     file,
@@ -115,24 +135,34 @@ if __name__ == "__main__":
                     mode=opt.mode,
                     scale_val=opt.scale_val,
                     img_idx=img_idx)
-
-                reconstrutctions = {
+                
+                reconstrutctions = {}
+                
+                if 'BackProjection' in modes_list:
+                    reconstrutctions['BackProjection'] = Rec.reconstruction_BP(
+                        signal)[::-1]
+                
+                if 'ElasticNet 1e-5' in modes_list:
+                    reconstrutctions['ElasticNet 1e-5'] = Rec.reconstruction_linreg(
+                        get_normal_signal(signal), 'ElasticNet', alpha=1e-5)
+                    
             #         'Atb': Rec.reconstruction_Atb(signal),
-                    'BackProjection': Rec.reconstruction_BP(
-                        signal)[::-1],    
+                    # 'BackProjection': Rec.reconstruction_BP(
+                    #     signal)[::-1],    
             #         'LSQR': RecLinear.reconstruction_lsqr(signal),
             #         'Lasso': RecLinear.reconstruction_linreg(signal, 'Lasso', alpha=1e-6),
                     # 'Ridge': RecLinear.reconstruction_linreg(signal, 'Ridge', alpha=1e-2),
-                    'ElasticNet 1e-5': Rec.reconstruction_linreg(
-                        get_normal_signal(signal[idx_use]), 'ElasticNet', alpha=1e-5),
+                    # 'ElasticNet 1e-5': Rec.reconstruction_linreg(
+                    #     get_normal_signal(signal), 'ElasticNet', alpha=1e-5),
                     # 'ElasticNet 0.25*1e-4': Rec.reconstruction_linreg(
                     #     signal, 'ElasticNet', alpha=0.25*1e-4),
             #         'TotalVariation': RecLinear.reconstruction_TV(signal),
-                }      
+
                 for mode in reconstrutctions.keys():
                     h5_fh[mode][img_idx] = reconstrutctions[mode]
-                    
-                show_resonstruction(
-                    reconstrutctions,
-                    fname=f'{tgt_folder}/Img_{img_idx}')
-                print(f"Total time: {(time.time() - start)/60:.2f} min\n")
+                
+                if img_idx in selected:   
+                    show_resonstruction(
+                        reconstrutctions,
+                        fname=f'{tgt_folder}/Img_{img_idx}')
+        print(f"Total time: {(time.time() - start)/60:.2f} min\n")

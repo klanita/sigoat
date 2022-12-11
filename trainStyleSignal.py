@@ -272,7 +272,7 @@ class TrainerStyle:
                     rec_syn_asreal = self.StyleNet.decode(latent_syn, real=True)
                     
                     # simple reconstruction loss
-                    err_MSE = criterionMSE(rec_syn, signal_syn) +\
+                    err_REC = criterionMSE(rec_syn, signal_syn) +\
                         criterionMSE(rec_real, signal_real)
 
                     # add cycle consistency loss
@@ -296,7 +296,7 @@ class TrainerStyle:
                     acc = get_accuracy(outputD_noise, label_real, self.device)
                     self.losses['Accuracy_ADV_noise'] = acc
 
-                    loss_total = err_MSE +\
+                    loss_total = err_REC +\
                         self.weight_cycle * err_cycle +\
                         self.weight_mmd*loss_fm +\
                         self.weight_adv_latent*errD_latent
@@ -305,13 +305,13 @@ class TrainerStyle:
                         loss_total +=\
                             self.weight_adv*(err_D_denoise + err_D_noise)                            
 
-                    self.losses['LATENT_mmd'] = loss_fm.item()
-                    self.losses['REC_mse'] = err_MSE.item()
-                    self.losses['REC_cycle'] = err_cycle.item()
-                    self.losses['ADV_noise'] = err_D_noise.item()
-                    self.losses['ADV_denoise'] = err_D_denoise.item()
-                    self.losses['ADV_latent'] = errD_latent.item()
-                    self.losses['TOTAL_LOSS'] = loss_total.item()
+                    self.losses['LOSS_LATENT_mmd'] = loss_fm.item()
+                    self.losses['LOSS_REC'] = err_REC.item()
+                    self.losses['LOSS_REC_cycle'] = err_cycle.item()
+                    self.losses['LOSS_ADV_noise'] = err_D_noise.item()
+                    self.losses['LOSS_ADV_denoise'] = err_D_denoise.item()
+                    self.losses['LOSS_ADV_latent'] = errD_latent.item()
+                    self.losses['LOSS_TOTAL'] = loss_total.item()
                     self.losses['Variance'] =\
                         torch.exp(self.StyleNet.logvar.weight[0]).max()
 
@@ -337,7 +337,7 @@ class TrainerStyle:
                 writer.add_image('RECONSTRUCTION Synthetic (Cycle)', pretty_batch(rec_syn_cycle), epoch)                        
 
                 print(f"[{epoch}/{num_epochs}][{iters}]\t",\
-                    f"Rec: {self.losses['REC_mse']:.2e}",
+                    f"Rec: {self.losses['LOSS_REC']:.2e}",
                     f"Acc latent: {self.losses['Accuracy_ADV_latent']:.2f}",
                     f"Acc denoise: {self.losses['Accuracy_ADV_denoise']:.2f}",
                     f"Acc noise: {self.losses['Accuracy_ADV_noise']:.2f}")

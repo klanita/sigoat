@@ -109,7 +109,8 @@ class UnpairedDataset(Dataset):
             input_modality_real='sigmat_multisegment',
             geometry=None,
             clip_norm=False,
-            validation=False
+            validation=False,
+            dataset='real'
             # idx_signal = list(range(524, 1480))
         ):
         """
@@ -198,6 +199,62 @@ class UnpairedDataset(Dataset):
         return max(len(self.signal_syn), len(self.signal_real))
 
 
+class TestDataset(Dataset):
+    """
+        Data loader for style transfer and sided reconstruction.
+    """
+    def __init__(
+            self, 
+            file_name,
+            input_modality='sigmat_multisegment',
+            clip_norm=False,
+        ):
+        """
+        Args:
+        file_name: str
+            Full path to the synthetic dataset.
+        input_modality: str (default: 'sigmat_multisegment')
+            Name of the modality (of synthetic data) to use in the dataset.
+        """        
+        idx_signal = calculate_split(-1)
+
+        self.input_modality = input_modality
+        self.file_name = file_name
+        
+        h5_fh = h5py.File(self.file_name, 'r') 
+        self.signal = h5_fh[self.input_modality][:]
+        self.len = len(self.signal)
+
+        self.idx_signal = idx_signal
+        self.clip_norm = clip_norm
+
+        if self.file_name == './data/benchmark_invivo.h5':
+            self.img_num = h5_fh['img_num'][:]
+        else:
+            self.img_num = None
+
+        self.scale = -1
+        if 'syn' in file_name:
+            self.scale = 1
+
+    def __getitem__(self, index):
+        idx = range(0, 256)
+        cutout_val = abs(self.signal[index][:524]).sum()
+        signal_scaled = self.scale*self.signal[index][:, idx][self.idx_signal]
+        signal_scaled = sigMatFilter(np.expand_dims(signal_scaled, axis=2))[:, :, 0]               
+        signal_scaled = sigMatNormalizeTensor(torch.Tensor(signal_scaled)).unsqueeze(2)            
+
+        if self.img_num is None:
+            idx_sample = index
+        else:
+            idx_sample = self.img_num[index][0]
+        
+        return signal_scaled.squeeze(2).unsqueeze(0), cutout_val
+
+    def __len__(self):
+        return len(self.signal)
+    
+    
 class UnpairedDatasetImages(Dataset):
     """
         Data loader for style transfer and sided reconstruction.
