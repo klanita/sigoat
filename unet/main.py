@@ -33,13 +33,14 @@ def parse_args():
     parser.add_argument('--test_prefix', type=str, default="syn")
     
     # parameters for training
-    parser.add_argument('--num_epochs', type=int, default=10)
+    parser.add_argument('--num_epochs', type=int, default=15)
     parser.add_argument('--batch_size', type=int, default=2)
     parser.add_argument('--device', type=str, default='cuda:0')
     parser.add_argument('--lr', type=float, default=0.001)    
     parser.add_argument('--burnin', type=int, default=100)
     parser.add_argument('--n_steps', type=int, default=5)
     
+    parser.add_argument('--bilinear', type=int, default=1)
     
     parser.add_argument('--scheduler', type=str, default='COSINE')
     parser.add_argument('--cosine_warmup_epochs', 
@@ -72,6 +73,8 @@ def parse_args():
 
     args = parser.parse_args()
 
+    args.bilinear = bool(args.bilinear)
+    
     return args
 
 

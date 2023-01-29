@@ -23,12 +23,16 @@ class UNetDataset(Dataset):
         input_modality: str (default: 'recon_linear')
             Name of the modality (of synthetic data) to use in the dataset.
         """        
-        
+        if 'syn' in file_name:
+            scale = -1
+        else:
+            scale = 1
+            
         h5_fh_in = h5py.File(f"{file_name}_{split}_{input_modality}_sigmat_multisegment.h5", 'r') 
-        self.input = h5_fh_in['BackProjection'][:]
+        self.input = scale*h5_fh_in['BackProjection'][:]
         
         h5_fh_out = h5py.File(f"{file_name}_{split}_{output_modality}_sigmat_multisegment.h5", 'r') 
-        self.output = h5_fh_out['BackProjection'][:]
+        self.output = scale*h5_fh_out['BackProjection'][:]
         
         print(self.input.shape, self.output.shape)
         

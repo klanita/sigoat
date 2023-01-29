@@ -90,7 +90,7 @@ class UNet(AutoEncoderModel):
         super(UNet, self).__init__(**args)
         n_channels = 1
         n_classes = 1
-        bilinear = True
+        bilinear = self.hparams.bilinear
         # self.n_channels = n_channels
         # self.n_classes = n_classes
         # self.bilinear = bilinear

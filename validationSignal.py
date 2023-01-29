@@ -14,6 +14,10 @@ import argparse
 import json
 from tqdm import tqdm
 
+idx_test_arm = [0, 1, 28, 29, 139, 142, 168, 204, 285, 428, 570, 713, 856, 998, 1141, 1284, 1426,
+            1569, 1712, 1854, 1997, 2140, 2282, 2425, 2568, 2710, 2853, 2996, 3138, 
+            3281, 3424, 3566, 3709, 3851, 3994, 4137, 4280, 4422]
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Validation Signal')        
     parser.add_argument('--prefix', type=str,
@@ -84,11 +88,11 @@ class Validation:
             self.StyleNet.eval()
             print(f"Loaded FULL network from:\t{pretrained_style}/Style{self.epoch}.pth")
         else:
-            # if 'Ablation' in pretrained_style:
-            self.StyleNet = StyleNetworkAblation(
-                'linear', normalization='instance').to(self.device)
-            # else:
-            #     self.StyleNet = StyleNetwork(-1).to(self.device)            
+            if 'Ablation' in pretrained_style:
+                self.StyleNet = StyleNetworkAblation(
+                    'linear', normalization='instance').to(self.device)
+            else:
+                self.StyleNet = StyleNetwork(-1).to(self.device)            
             self.StyleNet.load_state_dict(torch.load(f'{pretrained_style}/Style{self.epoch}.pth',
                 map_location=torch.device(self.device)))
             self.StyleNet.eval()
@@ -182,13 +186,13 @@ class Validation:
                 h5_fh['sigmat_multisegment'][i] = signal_tgt[i].numpy()
                 h5_fh['signal_with_RC'][i] = signal_with_RC[i][0].cpu().numpy()
                 h5_fh['signal_with_denoise'][i] = signal_with_denoise[i][0].cpu().numpy()
-
-        i_im = np.random.choice(num_images)
-        show_signal(
-            fname_h5,
-            im=i_im,
-            fname=f'{self.logfile_imgs}/{fname}_Signal_batch{batch_num}_{i_im}.png'
-        )
+            i_im = batch_num*num_images + i
+            if i_im in idx_test_arm:
+                show_signal(
+                    fname_h5,
+                    im=i,
+                    fname=f'{self.logfile_imgs}/{fname}_Signal_batch{batch_num}_{i}.png'
+                )
 
 
 def norm(img, scale=1):
@@ -283,8 +287,8 @@ if __name__ == "__main__":
 
     pbar = tqdm(data_loader)
     
-    i = 0
+    batch_num = 0
     for signal_input, cut_out in pbar:
-        model.save_h5(signal_input, f'{opt.dataset}_{i}', i)
-        i += 1
+        model.save_h5(signal_input, f'{opt.dataset}_{batch_num}', batch_num)
+        batch_num += 1
         pbar.set_description(f'{cut_out.mean():,}')

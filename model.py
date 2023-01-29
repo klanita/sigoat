@@ -11,6 +11,8 @@ class StyleNetworkImage(nn.Module):
         
         super(StyleNetworkImage, self).__init__()
         
+        print(normalization)
+        
         if normalization == 'instance':
             norm_layer=nn.InstanceNorm2d
         else:
@@ -200,6 +202,9 @@ class StyleNetwork(nn.Module):
         ):
 
         super(StyleNetwork, self).__init__()
+        
+        print(normalization)
+        
         if normalization == 'instance':
             norm_layer=nn.InstanceNorm2d
         elif normalization == 'bacth':
@@ -687,6 +692,8 @@ class FaderNetwork(nn.Module):
         super().__init__()
         self.latent_dim = latent_dim
 
+        print(normalization)
+        
         if normalization == 'instance':
             norm_layer=nn.InstanceNorm2d
         else:

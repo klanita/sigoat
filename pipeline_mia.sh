@@ -81,36 +81,42 @@
 # python  validationSignal.py --mode styleLinear --device cuda:0\
 #  --file_syn /home/anna/data_19Nov2022/old_syn_test.h5\
 #  --file_real /home/anna/dlbirhoui_data/arm.h5\
-#  --prefix MIA \
+#  --prefix MIA-curpaper \
 #  --pretrained_style /home/anna/style_results/deeplatent2021-06-09_chunk-1/\
 #  --pretrained_sides /home/anna/style_results/adv2021-06-21_chunk-1_sides/\
 #  --tgt_dir /home/anna/ResultsSignalDA/MIAvalidation_olddataset/signal/\
 #  --dataset real
 # /home/anna/ResultsSignalDA/MIAvalidation_olddataset/signal//MIAstyleLinear__2022-12-09//real_21.h5
 
-# i=21
-# python  validationReconstruction.py\
-#     --folder /home/anna/ResultsSignalDA/MIAvalidation_olddataset/signal//MIAstyleLinear__2022-12-09/\
-#     --tgtfolder /home/anna/ResultsSignalDA/MIAvalidation_olddataset/reconstruction//MIAstyleLinear__2022-12-09/\
-#     --data real\_$i\
-#     --geometry multi --mode signal_with_RC --subset 0
+# python  validationSignal.py --mode styleLinear --device cuda:0\
+#  --file_syn /home/anna/data_19Nov2022/old_syn_test.h5\
+#  --file_real /home/anna/dlbirhoui_data/arm.h5\
+#  --prefix MIA-curpaper \
+#  --pretrained_style /home/anna/style_results/deeplatent2021-06-09_chunk-1/\
+#  --pretrained_sides /home/anna/ResultsSignalDA//MIA2022-12-01_sidesAE/\
+#  --tgt_dir /home/anna/ResultsSignalDA/MIAvalidation_olddataset/signal/\
+#  --dataset real
 
 
-# {
-#   "prefix": "NewLinearInput_",
-#   "pretrained_sides": "/home/anna/style_results/adv2021-06-21_chunk-1_sides/",
-#   "pretrained_style": "/home/anna/style_results/deeplatent2021-06-09_chunk-1/",
-#   "mode": "sides_old_pipeline",
-#   "device": "cpu",
-#   "epoch": "",
-#   "tgt_dir": "./validation/"
-# }
-# Reconstructions of old dataset
-python  validationSignal.py --mode sides_old_pipeline --device cuda:0\
+# step 2 ---------- Sides ----------
+# python  main.py \
+#  --file_in /home/anna/data_19Nov2022/old_syn
+#  --target /home/anna/data_19Nov2022/real\
+#  --mode sidesAE\
+#  --lr 0.001 \
+#  --device cuda:0\
+#  --prefix MIA\
+#  --loss l1\
+#  --num_epochs 5\
+#  --pretrained_style /home/anna/ResultsSignalDA/Benchmark2021-09-30_styleLinear/
+# --pretrained_sides /home/anna/ResultsSignalDA/Benchmark2021-09-30_styleLinear/
+
+
+python  validationSignal.py --mode styleLinear --device cuda:0\
  --file_syn /home/anna/data_19Nov2022/old_syn_test.h5\
  --file_real /home/anna/dlbirhoui_data/arm.h5\
  --prefix MIA \
- --pretrained_style /home/anna/style_results/deeplatent2021-06-09_chunk-1/\
- --pretrained_sides /home/anna/style_results/adv2021-06-21_chunk-1_sides/\
+ --pretrained_style /home/anna/ResultsSignalDA/Benchmark2021-09-30_styleLinear/\
+ --pretrained_sides /home/anna/ResultsSignalDA/Benchmark_2021-09-30_sidesAE/\
  --tgt_dir /home/anna/ResultsSignalDA/MIAvalidation_olddataset/signal/\
  --dataset real
