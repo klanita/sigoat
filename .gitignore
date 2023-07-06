@@ -1,0 +1,5 @@
+runs/
+__pycache__/
+PaperFigures/
+arrayInfo/
+data/
