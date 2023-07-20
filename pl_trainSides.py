@@ -123,9 +123,10 @@ class sidesModel(LightningModule):
 
         self.log(f'Loss/{loss_name}', loss.item(), prog_bar=True)
 
-        im = Image.fromarray(pretty_batch(reconsts_syn.detach()))
-        images = wandb.Image(im, caption="TARGET Synthetic")
-        wandb.log({f"OUTPUT Synthetic": images})
+        # mat = reconsts_syn[0][0].detach().cpu().numpy()
+        # im = Image.fromarray(np.uint8(cm.gist_earth(mat)*255))
+        # images = wandb.Image(im, caption="OUTPUT Synthetic")
+        # wandb.log({f"OUTPUT Synthetic": images})
         
         # self.writer.add_image('TARGET Synthetic',
         #     pretty_batch(syn_tgt), self.current_epoch)
