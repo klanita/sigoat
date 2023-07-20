@@ -27,18 +27,24 @@
 #  --pretrained /home/anna/style_results/adv2021-06-21_chunk-1_sides/\
 #  --batch_size 4 --burnin 1000
 
-# path=/home/anna.susmelj@ad.biognosys.ch/MIDL/
-#  python  pl_main.py --mode sidesAE --lr 0.001 --device cuda:0\
-#  --test 0\
-#  --prefix Benchmark_ --loss l2 --num_epochs 1000\
-#  --target $path/data/arm.h5\
-#  --file_in $path/data/sigmat_multisegment_simulated.h5\
+
+# python  main.py --mode sidesAE --lr 0.001 --device cuda:0 \
+#  --prefix Benchmark_ --loss l1 --num_epochs 100\
 #  --pretrained_style None\
 #  --pretrained None\
-#  --prefix woStyleL2Real\
-#  --burnin 50\
-#  --tgt_dir $path/results/\
-#  --batch_size 256 --burnin 1000
+#  --batch_size 4 --burnin 1000
+
+
+# path=/home/anna.susmelj@ad.biognosys.ch/MIDL/
+python  pl_main.py --mode sidesAE --lr 0.001 --device cuda:0\
+ --test 0\
+ --prefix Ablation_woStyleL1Real_\
+ --loss l1 --num_epochs 1\
+ --pretrained_style None\
+ --pretrained ./MIAreview/Results/Ablation_woStyleL1Real_2023-07-20_sidesAE/epoch=0-step=1375.ckpt\
+ --burnin 50\
+ --tgt_dir ./MIAreview/Results/\
+ --batch_size 4 --burnin 1000
 
 # path=/home/anna.susmelj@ad.biognosys.ch/MIDL/
 #  python  pl_main.py --mode sidesAE --lr 0.001 --device cuda:0\
@@ -54,18 +60,18 @@
 #  --batch_size 320
 
 
-path=/home/anna.susmelj@ad.biognosys.ch/MIDL/
- python  pl_main.py --mode sidesAE --lr 0.001 --device cuda:0\
- --test 0\
- --prefix Benchmark_ --loss l1 --num_epochs 100\
- --target $path/data/arm.h5\
- --file_in $path/data/sigmat_multisegment_simulated.h5\
- --pretrained_style None\
- --pretrained /home/anna.susmelj@ad.biognosys.ch/MIDL/results/woStyleL22022-02-03_sidesAE/epoch=504-step=10604.ckpt\
- --prefix woStyleL2Real\
- --burnin 50\
- --tgt_dir $path/results/\
- --batch_size 448
+# path=/home/anna.susmelj@ad.biognosys.ch/MIDL/
+#  python  pl_main.py --mode sidesAE --lr 0.001 --device cuda:0\
+#  --test 0\
+#  --prefix Benchmark_ --loss l1 --num_epochs 100\
+#  --target $path/data/arm.h5\
+#  --file_in $path/data/sigmat_multisegment_simulated.h5\
+#  --pretrained_style None\
+#  --pretrained /home/anna.susmelj@ad.biognosys.ch/MIDL/results/woStyleL22022-02-03_sidesAE/epoch=504-step=10604.ckpt\
+#  --prefix woStyleL2Real\
+#  --burnin 50\
+#  --tgt_dir $path/results/\
+#  --batch_size 448
 
 
 # path=/home/anna.susmelj@ad.biognosys.ch/MIDL/

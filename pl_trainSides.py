@@ -11,7 +11,9 @@ from model import *
 from pytorch_lightning import LightningModule
 import math
 import pl_bolts
-from torch.utils.tensorboard import SummaryWriter
+import wandb
+from PIL import Image
+
 
 class sidesModel(LightningModule):
     """Base model with training loop, loss, and test configuration."""
@@ -44,7 +46,6 @@ class sidesModel(LightningModule):
             self.loss = torch.nn.L1Loss(reduction='mean')
 
         self._create_model()
-        self.writer = SummaryWriter()
 
     def _create_model(self):
         if not (self.hparams.pretrained_style is None):
@@ -122,15 +123,19 @@ class sidesModel(LightningModule):
 
         self.log(f'Loss/{loss_name}', loss.item(), prog_bar=True)
 
-        self.writer.add_image('TARGET Synthetic',
-            pretty_batch(syn_tgt), self.current_epoch)
-        self.writer.add_image('TARGET Real',
-            pretty_batch(real_tgt), self.current_epoch)
+        im = Image.fromarray(pretty_batch(reconsts_syn.detach()))
+        images = wandb.Image(im, caption="TARGET Synthetic")
+        wandb.log({f"OUTPUT Synthetic": images})
+        
+        # self.writer.add_image('TARGET Synthetic',
+        #     pretty_batch(syn_tgt), self.current_epoch)
+        # self.writer.add_image('TARGET Real',
+        #     pretty_batch(real_tgt), self.current_epoch)
 
-        self.writer.add_image('OUTPUT Synthetic',
-            pretty_batch(reconsts_syn.detach()), self.current_epoch)
-        self.writer.add_image('OUTPUT Real',
-            pretty_batch(reconsts_real.detach()), self.current_epoch)
+        # self.writer.add_image('OUTPUT Synthetic',
+        #     pretty_batch(reconsts_syn.detach()), self.current_epoch)
+        # self.writer.add_image('OUTPUT Real',
+        #     pretty_batch(reconsts_real.detach()), self.current_epoch)
 
         return reconsts_syn, reconsts_real, loss
 

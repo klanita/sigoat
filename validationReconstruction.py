@@ -30,6 +30,8 @@ def parse_args():
     parser.add_argument('--data', type=str, default='Real')
     parser.add_argument('--mode', type=str, default='signal_with_RC')    
     parser.add_argument('--nimgs', type=int, default=1)
+    parser.add_argument('--img_start', type=int, default=0)
+    parser.add_argument('--img_finish', type=int, default=-1)
     parser.add_argument('--scale_val', type=float, default=0)
     parser.add_argument('--subset', type=int, default=0)
     parser.add_argument('--modes_list', type=str, nargs='+', 
@@ -49,9 +51,9 @@ def get_signal_vec(
     ):
     # idx_signal = list(range(524, 1480))
     if geometry == 'linear':
-        signal = -file[mode][img_idx][:, 64:-64]
+        signal = file[mode][img_idx][:, 64:-64]
     else:        
-        signal = -file[mode][img_idx]
+        signal = file[mode][img_idx]
         if scale_val > 0:            
             signal[:, 64:-64] /= np.max(signal[:, 64:-64])
             signal[:, :64] = scale_val*signal[:, :64]/np.max(signal[:, :64])
@@ -102,12 +104,31 @@ if __name__ == "__main__":
 
         # modes_list = ['BackProjection', 'ElasticNet 1e-5']
         modes_list = opt.modes_list
-        fname_h5 = f'{tgt_folder}/{out_name}.h5'
-        
         
         nimgs = file[opt.mode].shape[0]
-        print(f'Found {nimgs} images.')
+        print(f'Found total {nimgs} images.')
         
+        assert opt.img_start >= 0
+        
+        if opt.subset == 1:
+            imdgs_idx = [1, 9, 12, 13, 22, 23, 26]
+            fname_h5 = f'{tgt_folder}/{out_name}_subset.h5'
+        else:
+            if opt.img_finish < 0:
+                img_finish = nimgs
+            elif opt.img_finish > 0:
+                img_finish = nimgs
+            else:
+                img_finish = opt.img_finish
+                
+            fname_h5 = f'{tgt_folder}/{out_name}_{opt.img_start}_{img_finish}.h5'
+                
+            imdgs_idx = range(opt.img_start, img_finish)
+        
+        assert opt.img_start < img_finish
+        
+        nimgs = len(imdgs_idx)
+            
         print('Creating file: %s' % fname_h5)
         data = {}
         with h5py.File(fname_h5, 'w', libver='latest') as h5_fh:
@@ -117,16 +138,11 @@ if __name__ == "__main__":
                     shape=[nimgs] + sigmat_size, 
                     dtype=np.float32, chunks=tuple([1] + sigmat_size),
                     compression='gzip', compression_opts=compression_lvl)
-
-        if opt.subset == 1:
-            imdgs_idx = [1, 9, 12, 13, 22, 23, 26]
-        else:
-            imdgs_idx = range(nimgs)
         
         selected = [0, 1, 9, 12, 13, 22, 23, 26]
         pbar = tqdm(imdgs_idx)
         with h5py.File(fname_h5, 'a', libver='latest') as h5_fh:
-            for img_idx in pbar:
+            for i, img_idx in enumerate(pbar):
                 # print('Img_idx:', img_idx)
                 start = time.time()
                 signal = get_signal_vec(
@@ -159,7 +175,7 @@ if __name__ == "__main__":
             #         'TotalVariation': RecLinear.reconstruction_TV(signal),
 
                 for mode in reconstrutctions.keys():
-                    h5_fh[mode][img_idx] = reconstrutctions[mode]
+                    h5_fh[mode][i] = reconstrutctions[mode]
                 
                 if img_idx in selected:   
                     show_resonstruction(

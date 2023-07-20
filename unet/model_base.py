@@ -17,10 +17,25 @@ import wandb
 from PIL import Image
 from matplotlib import cm
 
-from sklearn.metrics import mean_squared_error, mean_absolute_error
+# from sklearn.metrics import mean_squared_error, mean_absolute_error
+from torchmetrics.regression import MeanSquaredError, MeanAbsoluteError
+from skimage.metrics import structural_similarity as ssim
+from skimage.metrics import mean_squared_error
+from scipy.stats import pearsonr
+import skimage
+import cv2
+
 import h5py
 
+mean_squared_error_torch = MeanSquaredError()
+mean_absolute_error_torch = MeanAbsoluteError()
+
 out_logger = logging.getLogger(__name__)
+
+distr = {
+    0: 'Syn',
+    1: 'Real'
+}
 
 """ Template DeepXIC Module to be inherited"""
 class Parent_Model(pl.LightningModule):
@@ -77,7 +92,7 @@ class Parent_Model(pl.LightningModule):
         batch_input, target = batch
 
         output, _ = self.forward(batch_input)
-        loss = self._loss(output, target)
+        loss = self._loss(output, target.unsqueeze(1))
 
         if loss_name != 'test' :
             self.log(f'Loss/{loss_name}', loss.item(), prog_bar=True)
@@ -89,26 +104,26 @@ class Parent_Model(pl.LightningModule):
 
         return loss
 
-    def validation_step(self, batch, batch_idx):
-        output, target, loss = self._step(batch, 'val')
-        return {"output" : output,
-                "target" : target}
+    # def validation_step(self, batch, batch_idx):
+    #     output, target, loss = self._step(batch, 'val')
+    #     return {"output" : output,
+    #             "target" : target}
 
     def validation_step_end(self, batch) :
-        metrics = self._metrics(batch['output'].cpu(),
-                                batch['target'].cpu())
+        metrics = self._metrics(batch['output'],
+                                batch['target'])
         for k in metrics :
             self.log(f'{k}/val', metrics[k], prog_bar=True)
 
-    def test_step(self, batch, batch_idx):
-        output, target, loss = self._step(batch, 'test')
+    def test_step(self, batch, batch_idx, dataloader_idx):
+        output, target, loss = self._step(batch, f'test ({distr[dataloader_idx]})')
 
         return output, target, loss
     
     def test_step_end(self, test_step_output):
         output, target, *_ = test_step_output
         
-        loss = self._loss(output , target)
+        loss = self._loss(output , target.unsqueeze(1))
         self.log("Loss/test", loss.item())
 
         metrics = self._metrics(output , target)
@@ -152,15 +167,15 @@ class AutoEncoderModel(Parent_Model) :
 
     def _metrics(self, pred, target):
 
-        if torch.is_tensor(pred) :
-            pred, target = pred.cpu(), target.cpu()
+        # if torch.is_tensor(pred) :
+        #     pred, target = pred.cpu(), target.cpu()
 
         metrics = {}
         pred, target = pred.squeeze(1).cpu(), target.cpu()
 
-        metrics['MSE'] = mean_squared_error(y_true=target, y_pred=pred)
-        metrics['MAE'] = mean_absolute_error(y_true=target, y_pred=pred)
-        metrics['RMAE'] = metrics['MAE']/(max(target) - min(target))
+        metrics['MSE'] = mean_squared_error_torch(target, pred).item()
+        metrics['MAE'] = mean_absolute_error_torch(target, pred).item()
+        # metrics['RMAE'] = metrics['MAE']/(max(target) - min(target))
 
         return metrics
 
@@ -183,26 +198,28 @@ class AutoEncoderModel(Parent_Model) :
         _, loss = self._step(batch, 'train')
         return loss
 
+    def log_images(self, img_input, img_output, img_tgt, name):
+        dummy = -1* np.ones([256, 1])
+        mat = np.concatenate(
+            [img_input.cpu()[0], dummy, img_output.cpu()[0][0], dummy, img_tgt.cpu()[0]], axis=1)
+        
+        im = Image.fromarray(np.uint8(cm.gist_earth(mat)*255))
+        images = wandb.Image(im, caption="Input-Output-Target")
+        wandb.log({f"({name}) Input-Output-Target": images})
+        
     def validation_step(self, batch, batch_idx):
         img_input, img_tgt, _ = batch
         img_output, loss = self._step(batch, 'val')
 
-        dummy = -1* np.ones([256, 1])
-        mat = np.concatenate(
-            [img_input.cpu()[0], dummy, img_output.cpu()[0][0], dummy, img_tgt.cpu()[0]], axis=1)
+        self.log_images(img_input, img_output, img_tgt, 'val')
+        
+        return {"output" : img_output.squeeze(1),
+                "target" : img_tgt}
 
-        im = Image.fromarray(np.uint8(cm.gist_earth(mat)*255))
-        images = wandb.Image(im, caption="Input-Output-Target")
-        wandb.log({"Input-Output-Target": images})
-
-        return loss
-
-    def validation_step_end(self, batch) :
-        pass
-
-    def test_step(self, batch, batch_idx):
+    def test_step(self, batch, batch_idx, dataloader_idx):
         img_input, img_tgt, i = batch
-        img_pred, loss = self._step(batch, 'test')
+        img_pred, loss = self._step(batch, f'test ({distr[dataloader_idx]})')
+        self.log_images(img_input, img_pred, img_tgt, f'test ({distr[dataloader_idx]})')
         return img_pred, img_tgt, img_input, loss, i
 
     def test_step_end(self, output_results):
@@ -210,38 +227,84 @@ class AutoEncoderModel(Parent_Model) :
         loss = self._loss(img_pred , img_tgt)
         self.log("Loss/test", loss.item())
     
-    def test_epoch_end(self, output_results):
-        out_file = f"{self.hparams.logfile_name}/test_{self.hparams.test_prefix}.h5"
-        print(f'Test results in:\t{out_file}')
-        
-        compression_lvl = 9
-        sigmat_size = [256, 256]
-        nimgs = len(self.trainer.datamodule.test_set)
-        data = {}
-        output_names = {'input', 'output', 'target'}
-        with h5py.File(out_file, 'w', libver='latest') as h5_fh:
-            for mode in output_names:
-                data[mode] =\
-                    h5_fh.create_dataset(mode,
-                    shape=[nimgs] + sigmat_size, 
-                    dtype=np.float32, chunks=tuple([1] + sigmat_size),
-                    compression='gzip', compression_opts=compression_lvl)
-        
-        with h5py.File(out_file, 'a', libver='latest') as h5_fh:
-            for batch in range(len(output_results)):
-                img_output, img_tgt, img_input, loss, index = [x.cpu().numpy() for x in output_results[batch]]
-                
-                for i in range(img_output.shape[0]):
-                    h5_fh['output'][index[i]] = img_output[i][0]
-                    h5_fh['target'][index[i]] = img_tgt[i]
-                    h5_fh['input'][index[i]] = img_input[i]
+    def _scale(self, im):
+        sorted_int_values = np.sort(np.reshape(im, [-1]))
+        low5, high95 = int(len(sorted_int_values) * 0.025), int(len(sorted_int_values) * 0.975)
+    #     im_clipped = np.clip(im, a_min=sorted_int_values[low5], a_max=sorted_int_values[high95])
+        im_clipped = im
+        im_clipped /= np.max(im_clipped)
+        im_clipped = np.clip(im_clipped, -0.2, 2)
+        return im_clipped
 
-                dummy = -1* np.ones([256, 1])
-                mat = np.concatenate(
-                    [img_input[0], dummy, img_output[0][0], dummy, img_tgt[0]], axis=1)
+    def _test_metrics(self, pred, gt):
+        metrics = {}
+        metrics['SSIM'] = ssim(pred, gt,
+                  data_range=gt.max() - gt.min())
+        metrics['MSE'] = mean_squared_error(gt, pred)
+        metrics['PSNR']  = cv2.PSNR(gt, pred)
+        metrics['pearson'] = pearsonr(gt.reshape(-1), pred.reshape(-1))[0]
+        
+        return metrics
+    
+    def test_epoch_end(self, all_output_results):        
+        for dataloader_idx in range(2):
+            test_name = distr[dataloader_idx]
+            output_results = all_output_results[dataloader_idx]
+            out_file = f"{self.hparams.logfile_name}/test_{test_name}_{self.hparams.test_prefix}.h5"
+            print(f'Test ({test_name}) results in:\t{out_file}')
+            
+            compression_lvl = 9
+            sigmat_size = [256, 256]
+            nimgs = 0
+            for batch in output_results:
+                nimgs += len(batch[0])
+            print(f'Saving {nimgs} images.')
+            data = {}
+            output_names = {'input', 'output', 'target'}
+            metrics = {'SSIM': 0, 'PSNR': 0, 'pearson': 0, 'MSE': 0}
+            
+            with h5py.File(out_file, 'w', libver='latest') as h5_fh:
+                for mode in output_names:
+                    data[mode] =\
+                        h5_fh.create_dataset(mode,
+                        shape=[nimgs] + sigmat_size, 
+                        dtype=np.float32, chunks=tuple([1] + sigmat_size),
+                        compression='gzip', compression_opts=compression_lvl)
+                for mode in metrics:
+                    data[mode] =\
+                        h5_fh.create_dataset(mode,
+                        shape=[nimgs] + [1], 
+                        dtype=np.float32, chunks=tuple([1] + [1]),
+                        compression='gzip', compression_opts=compression_lvl)
+            
+            with h5py.File(out_file, 'a', libver='latest') as h5_fh:
+                for batch in range(len(output_results)):
+                    img_output, img_tgt, img_input, loss, index = [x.cpu().numpy() for x in output_results[batch]]
+                    
+                    for i in range(img_output.shape[0]):
+                        h5_fh['output'][index[i]] = img_output[i][0]
+                        h5_fh['target'][index[i]] = img_tgt[i]
+                        h5_fh['input'][index[i]] = img_input[i]
+                        
+                        metrics_per_image = self._test_metrics(
+                            self._scale(img_output[i][0]), 
+                            self._scale(img_tgt[i]))
+                        
+                        for k in metrics_per_image:
+                            h5_fh[k][index[i]] = metrics_per_image[k]
+                            metrics[k] += metrics_per_image[k]/nimgs
 
-                im = Image.fromarray(np.uint8(cm.gist_earth(mat)*255))
-                images = wandb.Image(im, caption="Input-Output-Target")
-                wandb.log({"TEST Input-Output-Target": images})
-                
-                f"{self.hparams.logfile_name}/test_{self.hparams.test_prefix}.h5"
+                    # self.log_images(img_input[0], img_output[0][0], img_tgt[0], 'val')
+                    
+                    # dummy = -1* np.ones([256, 1])
+                    # mat = np.concatenate(
+                    #     [img_input[0], dummy, img_output[0][0], dummy, img_tgt[0]], axis=1)
+
+                    # im = Image.fromarray(np.uint8(cm.gist_earth(mat)*255))
+                    # images = wandb.Image(im, caption="Input-Output-Target")
+                    # wandb.log({"TEST Input-Output-Target": images})
+                    
+                    f"{self.hparams.logfile_name}/test_{test_name}_{self.hparams.test_prefix}.h5"
+                    
+            for k in metrics :
+                self.log(f'{k}/Test ({test_name})', metrics[k], prog_bar=False)

@@ -23,8 +23,15 @@ def parse_args():
     # parser.add_argument('--file_in', type=str,
     #     default='/home/anna/data_19Nov2022/old_syn')
     
+    # parser.add_argument('--file_in_low', type=str,
+    #     default='/home/anna/ResultsSignalDA/GT_syn/old_syn')
+    
     parser.add_argument('--file_in', type=str,
-        default='/home/anna/ResultsSignalDA/GT_syn/old_syn')
+        default='../MIAreview/Syn/syn')
+    
+    parser.add_argument('--file_in_real', type=str,
+        default='../MIAreview/Syn/real')
+    
     # parser.add_argument('--file_out', type=str,
     #     default='/home/anna/data_19Nov2022/old_syn')
 
@@ -40,7 +47,7 @@ def parse_args():
     parser.add_argument('--burnin', type=int, default=100)
     parser.add_argument('--n_steps', type=int, default=5)
     
-    parser.add_argument('--bilinear', type=int, default=1)
+    parser.add_argument('--bilinear', type=int, default=0)
     
     parser.add_argument('--scheduler', type=str, default='COSINE')
     parser.add_argument('--cosine_warmup_epochs', 
@@ -55,9 +62,14 @@ def parse_args():
     parser.add_argument('--loss_name', type=str, default='l1', 
             help="Loss. Default: l2.", choices=['l1', 'l2'])
 
+    # parser.add_argument('--tgt_dir', type=str, 
+    #     default="/home/anna/ResultsSignalDA/UNet-BM-syn/",
+    #     help="Target directory to save the model.")
+    
     parser.add_argument('--tgt_dir', type=str, 
-        default="/home/anna/ResultsSignalDA/UNet-BM/",
+        default="../MIAreview/Results/",
         help="Target directory to save the model.")
+    
     parser.add_argument('--prefix', type=str, default="maxpool")
     
     # parameters for the loss
@@ -137,11 +149,11 @@ if __name__ == '__main__':
         auto_lr_find=False,
         default_root_dir=logfile_name,
         max_epochs=opt.num_epochs,
-        profiler="simple",
+        profiler=None,
         callbacks=callbacks,
         logger=logger,
         # checkpoint_callback=True,
-        log_every_n_steps=200,
+        log_every_n_steps=100,
         val_check_interval=0.5,
         # precision=16,
         strategy='dp',
@@ -152,7 +164,7 @@ if __name__ == '__main__':
         trainer.fit(model, datamodule=data_module)
     
     model.eval()
-    results = trainer.test(model, data_module)[0]
-    print(results)
+    results = trainer.test(model, data_module)
+    # print(results)
     
     wandb.finish()

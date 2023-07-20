@@ -14,7 +14,8 @@ class UNetDataset(Dataset):
             file_name,
             split,
             input_modality='linear',
-            output_modality='multi'
+            output_modality='multi',
+            recon='ElasticNet 1e-5'
         ):
         """
         Args:
@@ -22,17 +23,23 @@ class UNetDataset(Dataset):
             Full path to the synthetic dataset.
         input_modality: str (default: 'recon_linear')
             Name of the modality (of synthetic data) to use in the dataset.
-        """        
-        if 'syn' in file_name:
-            scale = -1
-        else:
-            scale = 1
-            
-        h5_fh_in = h5py.File(f"{file_name}_{split}_{input_modality}_sigmat_multisegment.h5", 'r') 
-        self.input = scale*h5_fh_in['BackProjection'][:]
+        """                
+        scale = 1
         
-        h5_fh_out = h5py.File(f"{file_name}_{split}_{output_modality}_sigmat_multisegment.h5", 'r') 
-        self.output = scale*h5_fh_out['BackProjection'][:]
+        # if 'syn' in file_name:
+        #     scale = -1
+            
+        # h5_fh_in = h5py.File(f"{file_name}_{split}_{input_modality}_sigmat_multisegment.h5", 'r') 
+        # self.input = scale*h5_fh_in['BackProjection'][:]
+        
+        # h5_fh_out = h5py.File(f"{file_name}_{split}_{output_modality}_sigmat_multisegment.h5", 'r') 
+        # self.output = scale*h5_fh_out['BackProjection'][:]
+
+        h5_fh_in = h5py.File(f"{file_name}_{split}_{input_modality}.h5", 'r') 
+        self.input = scale*h5_fh_in[recon][:]
+        
+        h5_fh_out = h5py.File(f"{file_name}_{split}_{output_modality}.h5", 'r') 
+        self.output = scale*h5_fh_out[recon][:]
         
         print(self.input.shape, self.output.shape)
         
@@ -91,9 +98,17 @@ class DataModule(pl.LightningDataModule):
             self.test_set = UNetDataset(
                 self.opt.file_in,
                 split='test',
+                )            
+            print(''.join(['-']*50))
+            print(f"Number of test (InD) points: {len(self.test_set):,}")
+            print(''.join(['-']*50))
+            
+            self.test_set_real = UNetDataset(
+                self.opt.file_in_real,
+                split='test',
                 )
             print(''.join(['-']*50))
-            print(f"Number of test points: {len(self.test_set):,}")
+            print(f"Number of test (OOD) points: {len(self.test_set_real):,}")
             print(''.join(['-']*50))
 
     def train_dataloader(self):
@@ -118,11 +133,18 @@ class DataModule(pl.LightningDataModule):
         )
 
     def test_dataloader(self):
-        return torch.utils.data.DataLoader(
+        return [torch.utils.data.DataLoader(
             self.test_set,
-            batch_size=self.batch_size,
+            batch_size=50,
             shuffle=False,
             drop_last=False,
             pin_memory=True,
             num_workers=self.opt.num_workers,
-        )
+        ), torch.utils.data.DataLoader(
+            self.test_set_real,
+            batch_size=64,
+            shuffle=False,
+            drop_last=False,
+            pin_memory=True,
+            num_workers=self.opt.num_workers,
+        )]

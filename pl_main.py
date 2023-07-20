@@ -20,10 +20,11 @@ torch.manual_seed(manualSeed)
 from sklearn.model_selection import train_test_split
 import pprint
 import json
-from clearml import Task
 from pl_trainSides import sidesModel
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
 if __name__ == "__main__":
     opt = parse_args() 
@@ -49,11 +50,10 @@ if __name__ == "__main__":
 
     writer = f'{opt.prefix}'
 
-    task = Task.init(
-            project_name='DeepTagSpectr2Seq',
-            task_name=writer,
-            reuse_last_task_id=False)
-
+    logger =  WandbLogger(project='SDAN',
+                            name=writer,
+                            save_dir=opt.tgt_dir)    
+    
     pl.seed_everything(42, workers=True)
     model = sidesModel(
         weight_sides=opt.weight_sides,
@@ -73,32 +73,39 @@ if __name__ == "__main__":
     
     if not (opt.pretrained is None):
             model = model.load_from_checkpoint(
-            checkpoint_path=opt.pretrained,
-            weight_sides=opt.weight_sides,
-            pretrained_style=opt.pretrained_style,
-            loss=opt.loss,
-            burnin=opt.burnin,
+                                checkpoint_path=opt.pretrained,
+                                weight_sides=opt.weight_sides,
+                                pretrained_style=opt.pretrained_style,
+                                loss=opt.loss,
+                                burnin=opt.burnin,
 
-            writer=writer,
-            epochs=opt.num_epochs,
-            learning_rate=opt.lr,
-            logfile=f'{logfile_name}/log.txt',
-            max_iters=len(data_module.train_dataloader())*opt.num_epochs
-        )  
+                                writer=writer,
+                                epochs=opt.num_epochs,
+                                learning_rate=opt.lr,
+                                logfile=f'{logfile_name}/log.txt',
+                                max_iters=len(data_module.train_dataloader())*opt.num_epochs
+            )  
     
-    checkpoint_callback = ModelCheckpoint(
+    checkpoint_callback = [ModelCheckpoint(
         monitor="Loss/val",
         mode ='min',
-        dirpath=logfile_name)
+        dirpath=logfile_name), 
+        EarlyStopping(
+                monitor='Loss/val',
+                min_delta=0.00,
+                patience=10,
+                verbose=False,
+                mode='min'
+            )]
 
     trainer = pl.Trainer(
         gpus=torch.cuda.device_count(),
         auto_lr_find=True,
         default_root_dir=logfile_name,
+        logger=logger,
         max_epochs=opt.num_epochs,
         profiler="simple",
-        callbacks=[checkpoint_callback],
-        checkpoint_callback=True,
+        callbacks=checkpoint_callback,
         log_every_n_steps=1,
         # val_check_interval=0.25,
         precision=16,

@@ -1,0 +1,92 @@
+/home/anna/anaconda3/envs/dl/lib/python3.8/site-packages/pl_bolts/models/self_supervised/amdim/amdim_module.py:35: UnderReviewWarning: The feature generate_power_seq is currently marked under review. The compatibility with other Lightning projects is not guaranteed and API may change at any time. The API and functionality may change without warning in future releases. More details: https://lightning-bolts.readthedocs.io/en/latest/stability.html
+  "lr_options": generate_power_seq(LEARNING_RATE_CIFAR, 11),
+/home/anna/anaconda3/envs/dl/lib/python3.8/site-packages/pl_bolts/models/self_supervised/amdim/amdim_module.py:93: UnderReviewWarning: The feature FeatureMapContrastiveTask is currently marked under review. The compatibility with other Lightning projects is not guaranteed and API may change at any time. The API and functionality may change without warning in future releases. More details: https://lightning-bolts.readthedocs.io/en/latest/stability.html
+  contrastive_task: Union[FeatureMapContrastiveTask] = FeatureMapContrastiveTask("01, 02, 11"),
+/home/anna/anaconda3/envs/dl/lib/python3.8/site-packages/pl_bolts/losses/self_supervised_learning.py:234: UnderReviewWarning: The feature AmdimNCELoss is currently marked under review. The compatibility with other Lightning projects is not guaranteed and API may change at any time. The API and functionality may change without warning in future releases. More details: https://lightning-bolts.readthedocs.io/en/latest/stability.html
+  self.nce_loss = AmdimNCELoss(tclip)
+/home/anna/anaconda3/envs/dl/lib/python3.8/site-packages/pl_bolts/datamodules/experience_source.py:18: UnderReviewWarning: The feature warn_missing_pkg is currently marked under review. The compatibility with other Lightning projects is not guaranteed and API may change at any time. The API and functionality may change without warning in future releases. More details: https://lightning-bolts.readthedocs.io/en/latest/stability.html
+  warn_missing_pkg("gym")
+Global seed set to 42
+wandb: Currently logged in as: anna-susmelj. Use `wandb login --relogin` to force relogin
+wandb: wandb version 0.15.5 is available!  To upgrade, please run:
+wandb:  $ pip install wandb --upgrade
+wandb: Tracking run with wandb version 0.13.6
+wandb: Run data is saved locally in ../MIAreview/Results/wandb/run-20230707_144726-3brrm6uo
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run debug_l1_BN_2023-07-07
+wandb: ⭐️ View project at https://wandb.ai/anna-susmelj/SDAN
+wandb: 🚀 View run at https://wandb.ai/anna-susmelj/SDAN/runs/3brrm6uo
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+IPU available: False, using: 0 IPUs
+HPU available: False, using: 0 HPUs
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0,1]
+Results will be saved to:	 ../MIAreview/Results//debug_l1_BN_2023-07-07 
+
+Parameters of the model are in:  ../MIAreview/Results//debug_l1_BN_2023-07-07/commandline_args.txt
+2 {'file_in': '../MIAreview/Syn/syn', 'file_in_real': '../MIAreview/Syn/real', 'mode': 'test', 'test_prefix': 'syn', 'num_epochs': 1, 'batch_size': 4, 'device': 'cuda:0', 'lr': 0.001, 'burnin': 100, 'n_steps': 5, 'bilinear': False, 'scheduler': 'COSINE', 'cosine_warmup_epochs': 10000, 'steplr_factor': 0.1, 'steplr_patience': 5, 'norm_layer': 'BN', 'loss_name': 'l1', 'tgt_dir': '../MIAreview/Results/', 'prefix': 'debug', 'loss': 'l1', 'num_workers': 16, 'weight_decay': 1e-05, 'ckpt': None, 'task_name': 'debug_l1_BN_2023-07-07', 'logfile_name': '../MIAreview/Results//debug_l1_BN_2023-07-07'}
+(50, 256, 256) (50, 256, 256)
+--------------------------------------------------
+Number of test (InD) points: 50
+--------------------------------------------------
+(100, 256, 256) (100, 256, 256)
+--------------------------------------------------
+Number of test (OOD) points: 100
+--------------------------------------------------
+Testing: 0it [00:00, ?it/s]Testing:   0%|          | 0/1 [00:00<?, ?it/s]Testing DataLoader 0:   0%|          | 0/1 [00:00<?, ?it/s]Testing DataLoader 0: 100%|██████████| 1/1 [00:02<00:00,  2.99s/it]Testing DataLoader 0:   0%|          | 0/1 [00:00<?, ?it/s]        Testing DataLoader 1:   0%|          | 0/1 [00:00<?, ?it/s]Testing DataLoader 1: 100%|██████████| 1/1 [00:00<00:00,  1.61it/s]Test (Syn) results in:	../MIAreview/Results//debug_l1_BN_2023-07-07/test_Syn_syn.h5
+Saving 50 images.
+Test (Real) results in:	../MIAreview/Results//debug_l1_BN_2023-07-07/test_Real_syn.h5
+Saving 100 images.
+Testing DataLoader 1: 100%|██████████| 1/1 [00:49<00:00, 49.64s/it]
+┏━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃       Test metric       ┃      DataLoader 0       ┃       DataLoader 1       ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│        Loss/test        │   0.09871885180473328   │   0.09922531247138977    │
+│    Loss/test (Real)     │                         │   0.09922531247138977    │
+│     Loss/test (Syn)     │   0.09871885180473328   │                          │
+│     MSE/Test (Real)     │   0.9252747961997703    │    0.9252747961997703    │
+│     MSE/Test (Syn)      │   0.9281638798378363    │    0.9281638798378363    │
+│    PSNR/Test (Real)     │    48.46829605102539    │    48.46829605102539     │
+│     PSNR/Test (Syn)     │   48.454593658447266    │    48.454593658447266    │
+│    SSIM/Test (Real)     │  -0.001876850104464822  │  -0.001876850104464822   │
+│     SSIM/Test (Syn)     │ -0.0011108907906946695  │  -0.0011108907906946695  │
+│   pearson/Test (Real)   │  -0.44984793261210937   │   -0.44984793261210937   │
+│   pearson/Test (Syn)    │   -0.5977909362005812   │   -0.5977909362005812    │
+└─────────────────────────┴─────────────────────────┴──────────────────────────┘
+wandb: Waiting for W&B process to finish... (success).
+wandb: 
+wandb: Run history:
+wandb: Loss/test (Real)/dataloader_idx_1 ▁
+wandb:  Loss/test (Syn)/dataloader_idx_0 ▁
+wandb:        Loss/test/dataloader_idx_0 ▁
+wandb:        Loss/test/dataloader_idx_1 ▁
+wandb:                   MSE/Test (Real) ▁
+wandb:                    MSE/Test (Syn) ▁
+wandb:                  PSNR/Test (Real) ▁
+wandb:                   PSNR/Test (Syn) ▁
+wandb:                  SSIM/Test (Real) ▁
+wandb:                   SSIM/Test (Syn) ▁
+wandb:                             epoch ▁
+wandb:               pearson/Test (Real) ▁
+wandb:                pearson/Test (Syn) ▁
+wandb:               trainer/global_step ▁
+wandb: 
+wandb: Run summary:
+wandb: Loss/test (Real)/dataloader_idx_1 0.09923
+wandb:  Loss/test (Syn)/dataloader_idx_0 0.09872
+wandb:        Loss/test/dataloader_idx_0 0.09872
+wandb:        Loss/test/dataloader_idx_1 0.09923
+wandb:                   MSE/Test (Real) 0.92527
+wandb:                    MSE/Test (Syn) 0.92816
+wandb:                  PSNR/Test (Real) 48.4683
+wandb:                   PSNR/Test (Syn) 48.45459
+wandb:                  SSIM/Test (Real) -0.00188
+wandb:                   SSIM/Test (Syn) -0.00111
+wandb:                             epoch 0
+wandb:               pearson/Test (Real) -0.44985
+wandb:                pearson/Test (Syn) -0.59779
+wandb:               trainer/global_step 0
+wandb: 
+wandb: Synced debug_l1_BN_2023-07-07: https://wandb.ai/anna-susmelj/SDAN/runs/3brrm6uo
+wandb: Synced 6 W&B file(s), 4 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ../MIAreview/Results/wandb/run-20230707_144726-3brrm6uo/logs

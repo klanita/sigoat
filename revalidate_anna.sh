@@ -47,9 +47,9 @@
 #  --mode sigmat_multisegment\
 #  --geometry multi --nimgs 1024 --subset 0
 
-python  validationReconstruction.py\
- --folder /home/anna/dlbirhoui_data/\
- --tgtfolder ./MIDL/GT/linear/\
- --data arm\
- --mode sigmat_multisegment\
- --geometry linear --nimgs 1024 --subset 0
+# python  validationReconstruction.py\
+#  --folder /home/anna/dlbirhoui_data/\
+#  --tgtfolder ./MIDL/GT/linear/\
+#  --data arm\
+#  --mode sigmat_multisegment\
+#  --geometry linear --nimgs 1024 --subset 0
