@@ -21,13 +21,15 @@ class TrainerSides:
         else:
             self.device = device
 
-        print('Pretrained style:', opt.pretrained_style)
-        self.StyleNet = StyleNetwork(-1).to(device)
+        print('Pretrained style:', opt.pretrained_style)        
         if not (opt.pretrained_style is None):
+            self.StyleNet = StyleNetwork(-1).to(device)
             self.StyleNet.load_state_dict(
                 torch.load(f'{opt.pretrained_style}/Style.pth',
                 map_location=torch.device(device)))
-        self.StyleNet.eval()        
+            self.StyleNet.eval()        
+        else:
+            self.StyleNet = None
 
         print('Pretrained sides:', opt.pretrained)
         if not ((opt.pretrained is None) or (opt.pretrained == 'None')):
@@ -55,6 +57,8 @@ class TrainerSides:
         self.sides_weight = 1
         self.losses = {}
         self.weight_sides = opt.weight_sides
+        self.weight_center = opt.weight_center
+        self.weight_real = opt.weight_real
 
     def training(
         self, 
@@ -72,17 +76,22 @@ class TrainerSides:
             loss = torch.nn.L1Loss(reduction='mean')
         
         dataiter = iter(data_loader_val)
-        syn_tgt_test, real_tgt_test, _ = dataiter.next()
+        syn_tgt_test, real_tgt_test, _ = next(dataiter)
         syn_tgt_test = syn_tgt_test.to(self.device)
         real_tgt_test = real_tgt_test.to(self.device)
 
         with torch.no_grad():
-            syn_assyn_test = self.StyleNet(
-                syn_tgt_test[:, :, :, 64:-64], 
-                real=False)
-            real_assyn_test = self.StyleNet(
-                real_tgt_test[:, :, :, 64:-64],
-                real=False)
+            if self.StyleNet is None:
+                syn_assyn_test = syn_tgt_test[:, :, :, 64:-64]
+                real_assyn_test = real_tgt_test[:, :, :, 64:-64]
+            else:
+                syn_assyn_test = self.StyleNet(
+                    syn_tgt_test[:, :, :, 64:-64], 
+                    real=False)
+                real_assyn_test = self.StyleNet(
+                    real_tgt_test[:, :, :, 64:-64],
+                    real=False)
+
 
         writer = SummaryWriter()
         iters = 0
@@ -93,14 +102,20 @@ class TrainerSides:
                         signal_to_device(syn_tgt, real_tgt, self.device)
  
                     with torch.no_grad():
-                        syn_assyn =\
-                            self.StyleNet(
-                                syn_tgt[:, :, :, 64:-64], real=False
-                                ).clone().detach()                    
-                        real_assyn =\
-                            self.StyleNet(
-                                real_tgt[:, :, :, 64:-64], real=False
-                                ).clone().detach()
+                        if self.StyleNet is None:
+                            syn_assyn =\
+                                    syn_tgt[:, :, :, 64:-64]                    
+                            real_assyn =\
+                                    real_tgt[:, :, :, 64:-64]
+                        else:
+                            syn_assyn =\
+                                self.StyleNet(
+                                    syn_tgt[:, :, :, 64:-64], real=False
+                                    ).clone().detach()                    
+                            real_assyn =\
+                                self.StyleNet(
+                                    real_tgt[:, :, :, 64:-64], real=False
+                                    ).clone().detach()
                     
                     self.SidesNet.train()
                     self.SidesNet.zero_grad()
@@ -126,7 +141,7 @@ class TrainerSides:
                     else:
                         total_loss =\
                             self.weight_sides*(rec_loss_right + rec_loss_left)+\
-                                rec_loss + rec_loss_real
+                                self.weight_center*rec_loss + self.weight_real*rec_loss_real
 
                     total_loss.backward()
                     self.optimizer.step()
@@ -169,25 +184,25 @@ class TrainerSides:
                             writer.add_scalar(f'Sides/{loss_name}',
                             self.losses[loss_name], iters)
                     
-                        writer.add_image('TARGET Synthetic',
-                            pretty_batch(syn_tgt), iters)
-                        writer.add_image('TARGET Real',
-                            pretty_batch(real_tgt), iters)
+                        # writer.add_image('TARGET Synthetic',
+                        #     pretty_batch(syn_tgt), iters)
+                        # writer.add_image('TARGET Real',
+                        #     pretty_batch(real_tgt), iters)
                             
-                        writer.add_image('INPUT Synthetic',
-                            pretty_batch(syn_assyn), iters)
-                        writer.add_image('INPUT Real',
-                            pretty_batch(real_assyn), iters)
+                        # writer.add_image('INPUT Synthetic',
+                        #     pretty_batch(syn_assyn), iters)
+                        # writer.add_image('INPUT Real',
+                        #     pretty_batch(real_assyn), iters)
 
                         writer.add_image('RECONSTRUCTION Synthetic',
                             pretty_batch(reconsts_syn), iters)
                         writer.add_image('RECONSTRUCTION Real',
                             pretty_batch(reconsts_real), iters)
 
-                        writer.add_image('VAL TARGET Real',
-                            pretty_batch(real_assyn_test), iters)
-                        writer.add_image('VAL TARGET Synthetic',
-                            pretty_batch(syn_assyn_test), iters) 
+                        # writer.add_image('VAL TARGET Real',
+                        #     pretty_batch(real_assyn_test), iters)
+                        # writer.add_image('VAL TARGET Synthetic',
+                        #     pretty_batch(syn_assyn_test), iters) 
                         writer.add_image('VAL RECONSTRUCTION Synthetic',
                             pretty_batch(reconsts_syn_test), iters)
                         writer.add_image('VAL RECONSTRUCTION Real',

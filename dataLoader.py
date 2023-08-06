@@ -169,14 +169,10 @@ class UnpairedDataset(Dataset):
         if 'ring' in self.input_modality_syn:
             idx_syn = range(256, 512)
             idx_real = range(0, 256)            
-            idx_syn_linear = range(256+64, 512-64)
-            idx_real_linear = range(0+64, 256-64)
             scale_real = 1
         else:
             idx_syn = range(0, 256)
             idx_real = range(0, 256)
-            idx_syn_linear = range(0+64, 256-64)
-            idx_real_linear = range(0+64, 256-64)
             scale_real = -1
 
         y_syn = self.signal_syn[index % self.len_syn][:, idx_syn][self.idx_signal]

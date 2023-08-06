@@ -10,7 +10,6 @@ from model import *
 
 from pytorch_lightning import LightningModule
 import math
-import pl_bolts
 import wandb
 from PIL import Image
 
@@ -33,6 +32,7 @@ class sidesModel(LightningModule):
             parallelism=1,
             print_freq=1,
             logfile='tmp.txt',
+            num_epochs=1,
             **kwargs
     ):
         super().__init__()
@@ -56,10 +56,9 @@ class sidesModel(LightningModule):
 
         self.SidesNet = FaderNetwork()
         
-        self.sides_weight = 1
         self.weight_sides = self.hparams.weight_sides
 
-    def forward(self, syn_assyn, real_assyn):
+    def forward(self, syn_assyn, real_assyn=None):
         """
         Args:
 
@@ -67,7 +66,11 @@ class sidesModel(LightningModule):
 
         # create necessary constansts
         reconsts_syn = self.SidesNet(syn_assyn)
-        reconsts_real = self.SidesNet(real_assyn)
+
+        if real_assyn is None:
+            reconsts_real = None
+        else:
+            reconsts_real = self.SidesNet(real_assyn)
 
         return reconsts_syn, reconsts_real
          
@@ -81,12 +84,17 @@ class sidesModel(LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
-        syn_tgt_test, real_tgt_test, _ = batch
+        syn_tgt_test = batch
         reconsts_syn, reconsts_real, loss = self._step(batch, 'test')
         return reconsts_syn, reconsts_real, loss
 
     def _step(self, batch, loss_name):
-        syn_tgt, real_tgt, _ = batch
+        # if self.trainer.global_step == ( self.total_steps // 2):
+        if self.current_epoch == (self.hparams.num_epochs//2):
+            self.loss = torch.nn.L1Loss(reduction='mean')
+            print('Switched to l1 loss')
+
+        syn_tgt = batch
 
         if not (self.hparams.pretrained_style is None):
             with torch.no_grad():
@@ -94,39 +102,56 @@ class sidesModel(LightningModule):
                     self.StyleNet(
                         syn_tgt[:, :, :, 64:-64], real=False
                         ).clone().detach()                    
-                real_assyn =\
-                    self.StyleNet(
-                        real_tgt[:, :, :, 64:-64], real=False
-                        ).clone().detach()
+                # real_assyn =\
+                #     self.StyleNet(
+                #         real_tgt[:, :, :, 64:-64], real=False
+                #         ).clone().detach()
         else:
             syn_assyn = syn_tgt[:, :, :, 64:-64]
-            real_assyn = real_tgt[:, :, :, 64:-64]
+            # real_assyn = real_tgt[:, :, :, 64:-64]
 
-        reconsts_syn, reconsts_real = self.forward(syn_assyn, real_assyn)
+        # reconsts_syn, reconsts_real = self.forward(syn_assyn, real_assyn)
+        reconsts_syn, reconsts_real = self.forward(syn_assyn, None)
                     
-        rec_loss_right =\
+        rec_loss_sides =\
             self.loss(reconsts_syn[:, :, :, -64:], 
-            syn_tgt[:, :, :, -64:])
-        rec_loss_left =\
+            syn_tgt[:, :, :, -64:]) +\
             self.loss(reconsts_syn[:, :, :, :64], 
             syn_tgt[:, :, :, :64])
 
+        self.log(f'LossSides/{loss_name}', rec_loss_sides.item(), prog_bar=True)
+
         if self.current_epoch > self.hparams.burnin:
             loss =\
-                self.weight_sides*(rec_loss_right + rec_loss_left)
+                self.weight_sides*rec_loss_sides
         else:
-            rec_loss = self.loss(reconsts_syn[:, :, :, 64:-64], syn_assyn)
-            rec_loss_real = self.loss(reconsts_real[:, :, :, 64:-64], real_assyn)
+            rec_loss_center = self.loss(reconsts_syn[:, :, :, 64:-64], syn_assyn)
+            # rec_loss_real = self.loss(reconsts_real[:, :, :, 64:-64], real_assyn)
             loss =\
-                self.weight_sides*(rec_loss_right + rec_loss_left)+\
-                    rec_loss + rec_loss_real
+                self.weight_sides*rec_loss_sides +\
+                    rec_loss_center 
+            self.log(f'LossCenter/{loss_name}', rec_loss_center.item(), prog_bar=True)
+            # + rec_loss_real
 
         self.log(f'Loss/{loss_name}', loss.item(), prog_bar=True)
+        
 
-        # mat = reconsts_syn[0][0].detach().cpu().numpy()
-        # im = Image.fromarray(np.uint8(cm.gist_earth(mat)*255))
+        if loss_name != 'train':
+            im = Image.fromarray(np.uint8(cm.gist_earth(syn_tgt[0][0].detach().cpu().numpy())*255))
+            images = wandb.Image(im, caption="Target Synthetic")
+            wandb.log({f"Target Synthetic ({loss_name})": images})
+
+            im = Image.fromarray(np.uint8(cm.gist_earth(reconsts_syn[0][0].detach().cpu().numpy())*255))
+            images = wandb.Image(im, caption="OUTPUT Synthetic")
+            wandb.log({f"OUTPUT Synthetic ({loss_name})": images})
+
+        # im = Image.fromarray(np.uint8(cm.gist_earth(reconsts_syn[0][0][:, :64].detach().cpu().numpy())*255))
         # images = wandb.Image(im, caption="OUTPUT Synthetic")
-        # wandb.log({f"OUTPUT Synthetic": images})
+        # wandb.log({f"OUTPUT Left Synthetic ({loss_name})": images})
+
+        # im = Image.fromarray(np.uint8(cm.gist_earth(reconsts_syn[0][0][:, -64:].detach().cpu().numpy())*255))
+        # images = wandb.Image(im, caption="OUTPUT Synthetic")
+        # wandb.log({f"OUTPUT Right Synthetic ({loss_name})": images})
         
         # self.writer.add_image('TARGET Synthetic',
         #     pretty_batch(syn_tgt), self.current_epoch)
@@ -141,14 +166,25 @@ class sidesModel(LightningModule):
         return reconsts_syn, reconsts_real, loss
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(
+        optimizer = torch.optim.AdamW(
             self.parameters(), 
             lr=self.hparams.learning_rate, 
-            betas=(0.9, 0.98), eps=1e-9)
+            weight_decay=1e-5)
+            # betas=(0.9, 0.98))
+            # , eps=1e-9)
 
-        self.lr_scheduler =\
-            pl_bolts.optimizers.lr_scheduler.LinearWarmupCosineAnnealingLR(
-                optimizer, warmup_epochs=10, max_epochs=self.hparams.max_iters)
+        # self.lr_scheduler =\
+        #     pl_bolts.optimizers.lr_scheduler.LinearWarmupCosineAnnealingLR(
+        #         optimizer, warmup_epochs=10, max_epochs=self.hparams.max_iters)
+        
+        self.total_steps = self.trainer.datamodule.train_dataloader_len//\
+            self.trainer.datamodule.batch_size*self.hparams.num_epochs
+        
+        self.lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer=optimizer, 
+                T_max=self.total_steps, 
+                eta_min=1e-7)
+        
         sched = {
             'scheduler': self.lr_scheduler,
             'interval': 'step',

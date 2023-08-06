@@ -29,22 +29,29 @@
 
 
 # python  main.py --mode sidesAE --lr 0.001 --device cuda:0 \
-#  --prefix Benchmark_ --loss l1 --num_epochs 100\
+#  --prefix Benchmark_noStyleC1R1_ --loss l1 --num_epochs 1\
 #  --pretrained_style None\
 #  --pretrained None\
-#  --batch_size 4 --burnin 1000
+#  --tgt_dir ./MIAreview/Results/\
+#  --file_in /itet-stor/klanna/bmicdatasets_bmicnas01/Sharing/klanna/datasets/sdan/data_19Nov2022/test_syn\
+#  --target /itet-stor/klanna/bmicdatasets_bmicnas01/Sharing/klanna/datasets/sdan/data_19Nov2022/test_real\
+#  --batch_size 4 --burnin 1000\
+#  --weight_center 1.0\
+#  --weight_real 1.0
 
 
-# path=/home/anna.susmelj@ad.biognosys.ch/MIDL/
+path=/home/anna.susmelj@ad.biognosys.ch/MIDL/
 python  pl_main.py --mode sidesAE --lr 0.001 --device cuda:0\
  --test 0\
  --prefix Ablation_woStyleL1Real_\
  --loss l1 --num_epochs 1\
  --pretrained_style None\
- --pretrained ./MIAreview/Results/Ablation_woStyleL1Real_2023-07-20_sidesAE/epoch=0-step=1375.ckpt\
+ --pretrained None\
  --burnin 50\
  --tgt_dir ./MIAreview/Results/\
- --batch_size 4 --burnin 1000
+ --file_in /itet-stor/klanna/bmicdatasets_bmicnas01/Sharing/klanna/datasets/sdan/data_19Nov2022/test_syn\
+ --target /itet-stor/klanna/bmicdatasets_bmicnas01/Sharing/klanna/datasets/sdan/data_19Nov2022/test_real\
+ --batch_size 2 
 
 # path=/home/anna.susmelj@ad.biognosys.ch/MIDL/
 #  python  pl_main.py --mode sidesAE --lr 0.001 --device cuda:0\
@@ -57,7 +64,7 @@ python  pl_main.py --mode sidesAE --lr 0.001 --device cuda:0\
 #  --prefix woStyleL2Real\
 #  --burnin 50\
 #  --tgt_dir $path/results/\
-#  --batch_size 320
+#  --batch_size 32
 
 
 # path=/home/anna.susmelj@ad.biognosys.ch/MIDL/

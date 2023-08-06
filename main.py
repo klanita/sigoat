@@ -24,7 +24,8 @@ import json
 
 if __name__ == "__main__":
     opt = parse_args()
-
+    print(opt)
+    
     device = torch.device(opt.device if torch.cuda.is_available() else 'cpu')
     
     # Indexes of the images we use for validation are currently hardcoded

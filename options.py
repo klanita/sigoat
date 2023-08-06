@@ -1,5 +1,6 @@
 import argparse
-PATH = '/home/anna.susmelj@ad.biognosys.ch/MIDL/data/'
+# PATH = '/home/anna.susmelj@ad.biognosys.ch/MIDL/data/'
+PATH = ''
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -71,6 +72,10 @@ def parse_args():
     parser.add_argument('--weight_cycle', type=float, default=0.1,\
         help='Weight for cycle consistency losses')
     parser.add_argument('--weight_sides', type=float, default=10.0,\
+        help='Weight for sides reconstruction losses in full model')
+    parser.add_argument('--weight_center', type=float, default=1.0,\
+        help='Weight for sides reconstruction losses in full model')
+    parser.add_argument('--weight_real', type=float, default=1.0,\
         help='Weight for sides reconstruction losses in full model')
     parser.add_argument('--weight_grad_adv', type=float, default=0.05,\
         help='Weight for gradient penalty.')

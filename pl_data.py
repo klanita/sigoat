@@ -1,6 +1,6 @@
-from dataLoader import UnpairedDataset, UnpairedDatasetImages
+from pl_dataset import UnpairedDataset
 import torch
-from sklearn.model_selection import train_test_split
+# from sklearn.model_selection import train_test_split
 import pytorch_lightning as pl
 
 class OADataModule(pl.LightningDataModule):
@@ -32,34 +32,54 @@ class OADataModule(pl.LightningDataModule):
         pass
 
     def setup(self, stage=None):
-        if self.opt.mode in ['styleImages']:
-            dataset = UnpairedDatasetImages(
-                self.opt.file_in,
-                file_name_real=self.opt.target)
-        else:
-            dataset = UnpairedDataset(
-                self.opt.file_in,
-                file_name_real=self.opt.target,
-                geometry=self.opt.geometry
-                )
+        # if self.opt.mode in ['styleImages']:
+        #     dataset = UnpairedDatasetImages(
+        #         self.opt.file_in,
+        #         file_name_real=self.opt.target)
+        # else:
+        #     dataset = UnpairedDataset(
+        #         self.opt.file_in,
+        #         file_name_real=self.opt.target,
+        #         geometry=self.opt.geometry
+        #         )
 
-        idx_all = list(set(range(len(dataset))) - set(self.idx_test))
+        # idx_all = list(set(range(len(dataset))) - set(self.idx_test))
 
         # separate the leftover of the dataset into train and validation
-        idx_train, idx_val = train_test_split(
-            idx_all, test_size=32, random_state=42)
+        # idx_train, idx_val = train_test_split(
+        #     idx_all, test_size=32, random_state=42)
 
         if stage in (None, "fit"):
-            self.val_set = torch.utils.data.dataset.Subset(
-                dataset, torch.LongTensor(idx_val))
-            self.train_set = torch.utils.data.dataset.Subset(
-                dataset, torch.LongTensor(idx_train))
+            self.train_set = UnpairedDataset(
+                f'{self.opt.file_in}_train.h5',
+                file_name_real=f'{self.opt.target}_train.h5',
+                geometry=self.opt.geometry
+                )
+            
+            self.val_set = UnpairedDataset(
+                f'{self.opt.file_in}_val.h5',
+                file_name_real=f'{self.opt.target}_val.h5',
+                geometry=self.opt.geometry
+                )
+            
+            # self.val_set = torch.utils.data.dataset.Subset(
+            #     dataset, torch.LongTensor(idx_val))
+            # self.train_set = torch.utils.data.dataset.Subset(
+            #     dataset, torch.LongTensor(idx_train))
 
         print("Number of train points:", len(self.train_set))
+        print("Number of val points:", len(self.val_set))
+
+        self.train_dataloader_len = len(self.train_set)
 
         if stage in (None, "test"):
-            self.test_set = torch.utils.data.dataset.Subset(
-                dataset, torch.LongTensor(self.idx_test))
+            # self.test_set = torch.utils.data.dataset.Subset(
+            #     dataset, torch.LongTensor(self.idx_test))
+            self.test_set = UnpairedDataset(
+                f'{self.opt.file_in}_test.h5',
+                file_name_real=f'{self.opt.target}_test.h5',
+                geometry=self.opt.geometry
+            )
             print("Number of test points:", len(self.test_set))
 
     def train_dataloader(self):
@@ -76,6 +96,16 @@ class OADataModule(pl.LightningDataModule):
     def val_dataloader(self):
         return torch.utils.data.DataLoader(
             self.val_set,
+            batch_size=self.batch_size,
+            shuffle=True,
+            drop_last=False,
+            pin_memory=True,
+            num_workers=self.opt.num_workers,
+        )
+    
+    def test_dataloader(self):
+        return torch.utils.data.DataLoader(
+            self.test_set,
             batch_size=self.batch_size,
             shuffle=False,
             drop_last=False,

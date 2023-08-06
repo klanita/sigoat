@@ -25,9 +25,12 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from pytorch_lightning.callbacks import LearningRateMonitor
 
 if __name__ == "__main__":
     opt = parse_args() 
+
+    print(opt)
 
     logfile_name = f'{opt.tgt_dir}/{opt.prefix}{str(date.today())}'+\
         f'_{opt.mode}/'
@@ -46,7 +49,7 @@ if __name__ == "__main__":
     print(''.join(['=']*len(msg)))
 
     data_module = pl_data.OADataModule(opt)
-    data_module.setup()
+    # data_module.setup()
 
     writer = f'{opt.prefix}'
 
@@ -65,7 +68,7 @@ if __name__ == "__main__":
         epochs=opt.num_epochs,
         learning_rate=opt.lr,
         logfile=f'{logfile_name}/log.txt',
-        max_iters=len(data_module.train_dataloader())*opt.num_epochs
+        num_epochs=opt.num_epochs
         )  
     
     model.hparams.epochs = opt.num_epochs
@@ -86,32 +89,33 @@ if __name__ == "__main__":
                                 max_iters=len(data_module.train_dataloader())*opt.num_epochs
             )  
     
-    checkpoint_callback = [ModelCheckpoint(
+    lr_monitor = LearningRateMonitor(logging_interval='step')
+
+    checkpoint_callback = [lr_monitor, ModelCheckpoint(
         monitor="Loss/val",
         mode ='min',
         dirpath=logfile_name), 
         EarlyStopping(
                 monitor='Loss/val',
                 min_delta=0.00,
-                patience=10,
+                patience=20,
                 verbose=False,
                 mode='min'
             )]
 
     trainer = pl.Trainer(
-        gpus=torch.cuda.device_count(),
-        auto_lr_find=True,
+        devices=torch.cuda.device_count(),
+        accelerator='gpu',
         default_root_dir=logfile_name,
         logger=logger,
         max_epochs=opt.num_epochs,
         profiler="simple",
         callbacks=checkpoint_callback,
-        log_every_n_steps=1,
+        log_every_n_steps=5,
         # val_check_interval=0.25,
-        precision=16,
-        strategy='dp',
-        num_processes=None,
-        accelerator=None,
+        precision=32,
     )
 
     trainer.fit(model, datamodule=data_module)
+
+    trainer.test(model, data_module)
