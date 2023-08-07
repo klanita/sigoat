@@ -23,7 +23,7 @@ class sidesModel(LightningModule):
             pretrained_style=None,
             loss='l1',
             burnin=100,
-
+            normalization='instance',
             warmup=40,
             max_iters=1000,
             writer='tmp',
@@ -54,7 +54,7 @@ class sidesModel(LightningModule):
                 torch.load(f'{self.hparams.pretrained_style}/Style.pth'))
             self.StyleNet.eval()
 
-        self.SidesNet = FaderNetwork()
+        self.SidesNet = FaderNetwork(normalization=self.hparams.normalization)
         
         self.weight_sides = self.hparams.weight_sides
 
@@ -90,9 +90,9 @@ class sidesModel(LightningModule):
 
     def _step(self, batch, loss_name):
         # if self.trainer.global_step == ( self.total_steps // 2):
-        if self.current_epoch == (self.hparams.num_epochs//2):
-            self.loss = torch.nn.L1Loss(reduction='mean')
-            print('Switched to l1 loss')
+        # if self.current_epoch == (self.hparams.num_epochs//2):
+        #     self.loss = torch.nn.L1Loss(reduction='mean')
+        #     # print('Switched to l1 loss')
 
         syn_tgt = batch
 

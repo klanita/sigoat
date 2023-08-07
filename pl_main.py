@@ -26,14 +26,21 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import LearningRateMonitor
+from datetime import datetime
+import pprint
+
+def get_timestamp():
+    dt = datetime.now()
+    return  f"{dt.month:02d}-{dt.day:02d}-{dt.hour:02d}-{dt.minute:02d}"
 
 if __name__ == "__main__":
     opt = parse_args() 
+    hparams = vars(opt)
+    pprint.pprint(hparams)
 
-    print(opt)
-
-    logfile_name = f'{opt.tgt_dir}/{opt.prefix}{str(date.today())}'+\
-        f'_{opt.mode}/'
+    timestmap = get_timestamp()
+    logfile_name = f'{opt.tgt_dir}/{opt.prefix}{timestmap}'+\
+        f'_{opt.mode}_{opt.loss}_{opt.normalization}/'
 
     if not os.path.exists(logfile_name):
         os.makedirs(logfile_name)
@@ -63,7 +70,7 @@ if __name__ == "__main__":
         pretrained_style=opt.pretrained_style,
         loss=opt.loss,
         burnin=opt.burnin,
-
+        normalization=opt.normalization,
         writer=writer,
         epochs=opt.num_epochs,
         learning_rate=opt.lr,
@@ -75,33 +82,34 @@ if __name__ == "__main__":
     model.hparams.learning_rate = opt.lr
     
     if not (opt.pretrained is None):
-            model = model.load_from_checkpoint(
-                                checkpoint_path=opt.pretrained,
-                                weight_sides=opt.weight_sides,
-                                pretrained_style=opt.pretrained_style,
-                                loss=opt.loss,
-                                burnin=opt.burnin,
-
-                                writer=writer,
-                                epochs=opt.num_epochs,
-                                learning_rate=opt.lr,
-                                logfile=f'{logfile_name}/log.txt',
-                                max_iters=len(data_module.train_dataloader())*opt.num_epochs
-            )  
+        model = model.load_from_checkpoint(
+            checkpoint_path=opt.pretrained,
+            weight_sides=opt.weight_sides,
+            pretrained_style=opt.pretrained_style,
+            loss=opt.loss,
+            burnin=opt.burnin,
+            normalization=opt.normalization,
+            writer=writer,
+            epochs=opt.num_epochs,
+            learning_rate=opt.lr,
+            logfile=f'{logfile_name}/log.txt',
+            max_iters=opt.num_epochs
+        )  
     
     lr_monitor = LearningRateMonitor(logging_interval='step')
 
     checkpoint_callback = [lr_monitor, ModelCheckpoint(
         monitor="Loss/val",
         mode ='min',
-        dirpath=logfile_name), 
+        dirpath=logfile_name)
+        , 
         EarlyStopping(
                 monitor='Loss/val',
                 min_delta=0.00,
                 patience=20,
                 verbose=False,
-                mode='min'
-            )]
+                mode='min')
+        ]
 
     trainer = pl.Trainer(
         devices=torch.cuda.device_count(),
